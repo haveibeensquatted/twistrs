@@ -351,7 +351,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rusty-twister"
+name = "rusty-twist"
 version = "0.1.0"
 dependencies = [
  "lazy_static",

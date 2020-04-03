@@ -1,5 +1,3 @@
-extern crate phf;
-
 use phf::phf_map;
 use publicsuffix::List;
 
