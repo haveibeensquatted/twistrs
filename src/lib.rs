@@ -1,4 +1,3 @@
-#![cfg_attr(test, deny(warnings))]
 #![deny(
     // TODO(jdb): Uncomment missing docs later on
     //missing_docs,
@@ -88,49 +87,18 @@ pub struct Domain<'a> {
     domain: String,
 }
 
+#[derive(Copy, Clone)]
 pub enum PermutationMode {
-    #[allow(dead_code)]
     All,
     Addition,
     BitSquatting,
-
-    #[allow(dead_code)]
     Homoglyph,
-
     Hyphenation,
     Insertion,
     // TODO(jdb): Add remaining modes
 }
 
 impl<'a> Domain<'a> {
-    // TODO(jdb): See how to clean this up
-    fn inline_char_insert(
-        i: usize,
-        prefix: &[char],
-        suffix: &[char],
-        dst: &'a mut Vec<char>,
-        c: char,
-    ) -> &'a Vec<char> {
-        prefix[..i]
-            .iter()
-            .enumerate()
-            .for_each(|(_, c)| dst.push(*c));
-
-        dst.push(c);
-
-        prefix[i..]
-            .iter()
-            .enumerate()
-            .for_each(|(_, c)| dst.push(*c));
-
-        suffix[..]
-            .iter()
-            .enumerate()
-            .for_each(|(_, c)| dst.push(*c));
-
-        dst
-    }
-
     pub fn new(fqdn: &'static str) -> Result<Domain<'a>, Error> {
         match DOMAIN_LIST.parse_domain(fqdn) {
             Ok(parsed_domain) => {
@@ -205,34 +173,25 @@ impl<'a> Domain<'a> {
         //
         //  Then check if the resulting bit operation falls within ASCII range.
 
-        let domain = self.domain.chars().collect::<Vec<char>>();
+        let fqdn = self.fqdn.to_string();
 
-        for c in domain.iter() {
+        for c in fqdn.chars().collect::<Vec<char>>().iter() {
             for mask_index in 0..8 {
                 let mask = 1 << mask_index;
 
                 // Can the below panic? Should we use a wider range (u32)?
-                let squatted_char = mask ^ (*c as u8);
+                let squatted_char: u8 = mask ^ (*c as u8);
 
                 // Make sure we remain with ASCII range that we are happy with
                 if (squatted_char >= 48 && squatted_char <= 57)
                     || (squatted_char >= 97 && squatted_char <= 122)
                     || squatted_char == 45
                 {
-                    // TODO(jdb): See if there is a cleaner way to achieve this
-                    let mut squatted_domain = Vec::with_capacity(domain.len() + self.tld.len());
-
-                    self.permutations.insert(
-                        Domain::inline_char_insert(
-                            mask_index,
-                            &domain,
-                            &self.tld.chars().collect::<Vec<char>>(),
-                            &mut squatted_domain,
-                            squatted_char as char,
-                        )
-                        .iter()
-                        .collect::<String>(),
-                    );
+                    for idx in 1..fqdn.len() {
+                        let mut permutation = self.fqdn.to_string();
+                        permutation.insert(idx, squatted_char as char);
+                        self.permutations.insert(permutation);
+                    }
                 }
             }
         }
@@ -241,40 +200,28 @@ impl<'a> Domain<'a> {
     }
 
     fn hyphentation(&'a mut self) -> &Domain<'a> {
-        let domain = &self.domain.chars().collect::<Vec<char>>();
+        let fqdn = self.fqdn.to_string();
 
-        for (i, _) in domain.iter().enumerate() {
+        for (i, _) in fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
             // Skip the first index, as domains cannot start with hyphen
             if i == 0 {
                 continue;
             }
 
-            // Create buffer for new domain with same capacity plus 1
-            // to allow for hyphen ('-') to be pushed.
-            let mut squatted_domain: Vec<char> = Vec::with_capacity(domain.len() + 1);
-
-            self.permutations.insert(
-                Domain::inline_char_insert(
-                    i,
-                    domain,
-                    &self.tld.chars().collect::<Vec<char>>(),
-                    &mut squatted_domain,
-                    '-',
-                )
-                .iter()
-                .collect::<String>(),
-            );
+            let mut permutation = self.fqdn.to_string();
+            permutation.insert(i, '-');
+            self.permutations.insert(permutation);
         }
 
         self
     }
 
     fn insertion(&'a mut self) -> &Domain<'a> {
-        let domain = &self.domain.chars().collect::<Vec<char>>();
+        let fqdn = self.fqdn.to_string();
 
-        for (i, c) in domain.iter().enumerate() {
+        for (i, c) in fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
             // We do not want to insert in the beginning or in the end of the domain
-            if i == 0 || 1 == domain.len() - 1 {
+            if i == 0 || i == fqdn.len() - 1 {
                 continue;
             }
 
@@ -287,19 +234,9 @@ impl<'a> Domain<'a> {
                         .collect::<Vec<char>>()
                         .iter()
                     {
-                        let mut squatted_domain: Vec<char> = Vec::with_capacity(domain.len() + 1);
-
-                        self.permutations.insert(
-                            Domain::inline_char_insert(
-                                i,
-                                domain,
-                                &self.tld.chars().collect::<Vec<char>>(),
-                                &mut squatted_domain,
-                                *keyboard_char,
-                            )
-                            .iter()
-                            .collect::<String>(),
-                        );
+                        let mut permutation = self.fqdn.to_string();
+                        permutation.insert(i, *keyboard_char);
+                        self.permutations.insert(permutation);
                     }
                 }
             }
