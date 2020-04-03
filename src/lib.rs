@@ -106,25 +106,25 @@ impl<'a> Domain<'a> {
     // TODO(jdb): See how to clean this up
     fn inline_char_insert(
         i: usize,
-        prefix: &'a Vec<char>,
-        suffix: &'a Vec<char>,
+        prefix: &[char],
+        suffix: &[char],
         dst: &'a mut Vec<char>,
         c: char,
     ) -> &'a Vec<char> {
         prefix[..i]
-            .into_iter()
+            .iter()
             .enumerate()
             .for_each(|(_, c)| dst.push(*c));
 
         dst.push(c);
 
         prefix[i..]
-            .into_iter()
+            .iter()
             .enumerate()
             .for_each(|(_, c)| dst.push(*c));
 
         suffix[..]
-            .into_iter()
+            .iter()
             .enumerate()
             .for_each(|(_, c)| dst.push(*c));
 
@@ -230,7 +230,7 @@ impl<'a> Domain<'a> {
                             &mut squatted_domain,
                             squatted_char as char,
                         )
-                        .into_iter()
+                        .iter()
                         .collect::<String>(),
                     );
                 }
@@ -261,7 +261,7 @@ impl<'a> Domain<'a> {
                     &mut squatted_domain,
                     '-',
                 )
-                .into_iter()
+                .iter()
                 .collect::<String>(),
             );
         }
@@ -297,7 +297,7 @@ impl<'a> Domain<'a> {
                                 &mut squatted_domain,
                                 *keyboard_char,
                             )
-                            .into_iter()
+                            .iter()
                             .collect::<String>(),
                         );
                     }
