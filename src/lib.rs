@@ -75,6 +75,7 @@ extern crate lazy_static;
 mod constants;
 
 use constants::{ASCII_LOWER, DOMAIN_LIST, KEYBOARD_LAYOUTS};
+use dns::stub;
 use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
 
@@ -86,6 +87,22 @@ pub struct Domain<'a> {
     tld: String,
     domain: String,
 }
+
+// TODO(jdb): We need some sort of structure that allows
+//            us to enrich the data from permutations that
+//            are resolvable or interesting. So we could
+//            keep something similar to:
+//
+//            "my.cool.fqdn": {
+//              "mx": true,
+//              "http": {
+//                  "banner": "nginx/1.0",
+//                  "ttl": true
+//              }
+//              "dns": {
+//                  "ips": [ 1.1.1.1, 1.2.3.4 ]
+//              }
+//            }
 
 #[derive(Copy, Clone)]
 pub enum PermutationMode {
@@ -117,7 +134,7 @@ impl<'a> Domain<'a> {
                     ));
                 }
 
-                let tld = format!(".{}", String::from(parts[len - 1]));
+                let tld = format!("{}", String::from(parts[len - 1]));
                 let domain = String::from(parts[len - 2]);
 
                 Ok(Domain {
@@ -152,6 +169,13 @@ impl<'a> Domain<'a> {
             self.permutations
                 .insert(format!("{}{}.{}", self.domain, c.to_string(), self.tld));
         }
+
+        stub(
+            self.permutations
+                .iter()
+                .map(|s| &**s)
+                .collect::<Vec<&str>>(),
+        );
 
         self
     }
@@ -243,6 +267,26 @@ impl<'a> Domain<'a> {
         }
 
         self
+    }
+}
+
+// CLEANUP(jdb): Move this into its own module
+mod dns {
+    use dns_lookup::lookup_host;
+    use rayon::prelude::*;
+    use std::net::IpAddr;
+
+    fn dns_resolvable<'a>(addr: &'a &'a str) -> Option<Vec<IpAddr>> {
+        match lookup_host(addr) {
+            Ok(ips) => Some(ips),
+            Err(_) => None,
+        }
+    }
+
+    pub fn stub(domains: Vec<&str>) {
+        let result: Vec<_> = domains.par_iter().filter_map(dns_resolvable).collect();
+
+        println!("Result: {:#?}", result);
     }
 }
 

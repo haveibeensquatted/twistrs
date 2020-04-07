@@ -1,5 +1,6 @@
 use phf::phf_map;
 use publicsuffix::List;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 
 // Stack allocate these at compile time
 pub static ASCII_LOWER: [char; 26] = [
@@ -10,6 +11,16 @@ pub static ASCII_LOWER: [char; 26] = [
 lazy_static! {
     pub static ref DOMAIN_LIST: List =
         List::from_path("src/database/effective_tld_names.dat").unwrap();
+
+    // This can only be called once, we use lazy_static to initialize
+    // it once on startup.
+    //
+    // @CLEANUP(jdb): Do we need to have a binding here? Can't we just
+    //                initialize it?
+    pub static ref THREAD_POOL: () = ThreadPoolBuilder::new()
+        .num_threads(100)
+        .build_global()
+        .unwrap();
 }
 
 static QWERTY_KEYBOARD_LAYOUT: phf::Map<char, &'static str> = phf_map! {

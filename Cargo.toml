@@ -8,3 +8,5 @@ edition = "2018"
 publicsuffix = "1.5"
 lazy_static  = "1.4.0"
 phf	     = { version = "0.8.0", features = ["macros"] }
+rayon        = "1.3.0"
+dns-lookup   = "1.0.1"
