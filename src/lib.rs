@@ -107,26 +107,6 @@ pub struct Domain<'a> {
     resolved_domains: DomainStore,
 }
 
-// TODO(jdb): We need some sort of structure that allows
-//            us to enrich the data from permutations that
-//            are resolvable or interesting. So we could
-//            keep something similar to:
-//
-//            "my.cool.fqdn": {
-//              "mx": true,
-//              "http": {
-//                  "banner": "nginx/1.0",
-//                  "ttl": true
-//              }
-//              "dns": {
-//                  "ips": [ 1.1.1.1, 1.2.3.4 ]
-//              }
-//            }
-
-// CLEANUP(jdb): Move this somewhere else? How do we expose it to the
-//               library users?
-// let mut DomainStore: DomainStore = Arc::new(HashMap::new());
-//
 #[derive(Copy, Clone)]
 pub enum PermutationMode {
     All,
