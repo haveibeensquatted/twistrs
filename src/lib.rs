@@ -76,8 +76,26 @@ mod constants;
 
 use constants::{ASCII_LOWER, DOMAIN_LIST, KEYBOARD_LAYOUTS};
 use dns::stub;
-use std::collections::HashSet;
+
+use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind};
+use std::net::IpAddr;
+use std::sync::{Arc, Mutex};
+
+/// Container to store interesting FQDN metadata
+/// on domains that we resolvable and have some
+/// interesting properties.
+#[derive(Debug)]
+pub struct DomainMetadata {
+    ips: Box<Vec<IpAddr>>,
+}
+
+// TODO(jdb): Does it make sense that this container is kept in the
+//            library? We need a way to store resolved domains in a
+//            thread-safe manner. In this case, we need rayon to be
+//            to add all resolved domains in a single container wit-
+//            hout having to worry about thread safety as much.
+type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
 
 #[derive(Default, Debug)]
 pub struct Domain<'a> {
@@ -86,6 +104,7 @@ pub struct Domain<'a> {
 
     tld: String,
     domain: String,
+    resolved_domains: DomainStore,
 }
 
 // TODO(jdb): We need some sort of structure that allows
@@ -104,6 +123,10 @@ pub struct Domain<'a> {
 //              }
 //            }
 
+// CLEANUP(jdb): Move this somewhere else? How do we expose it to the
+//               library users?
+// let mut DomainStore: DomainStore = Arc::new(HashMap::new());
+//
 #[derive(Copy, Clone)]
 pub enum PermutationMode {
     All,
@@ -136,12 +159,14 @@ impl<'a> Domain<'a> {
 
                 let tld = format!("{}", String::from(parts[len - 1]));
                 let domain = String::from(parts[len - 2]);
+                let resolved_domains = Arc::new(Mutex::new(HashMap::new()));
 
                 Ok(Domain {
                     fqdn,
                     permutations: HashSet::new(),
                     tld,
                     domain,
+                    resolved_domains,
                 })
             }
 
@@ -175,7 +200,10 @@ impl<'a> Domain<'a> {
                 .iter()
                 .map(|s| &**s)
                 .collect::<Vec<&str>>(),
+            &mut self.resolved_domains,
         );
+
+        dbg!(&self);
 
         self
     }
@@ -272,21 +300,44 @@ impl<'a> Domain<'a> {
 
 // CLEANUP(jdb): Move this into its own module
 mod dns {
+    use super::{DomainMetadata, DomainStore};
     use dns_lookup::lookup_host;
     use rayon::prelude::*;
     use std::net::IpAddr;
 
-    fn dns_resolvable<'a>(addr: &'a &'a str) -> Option<Vec<IpAddr>> {
+    struct ResolvedDomain {
+        fqdn: String,
+        ips: Vec<IpAddr>,
+    }
+
+    fn dns_resolvable<'a>(addr: &'a str) -> Option<ResolvedDomain> {
         match lookup_host(addr) {
-            Ok(ips) => Some(ips),
+            Ok(ips) => Some(ResolvedDomain {
+                fqdn: String::from(addr),
+                ips,
+            }),
             Err(_) => None,
         }
     }
 
-    pub fn stub(domains: Vec<&str>) {
-        let result: Vec<_> = domains.par_iter().filter_map(dns_resolvable).collect();
+    pub fn stub(domains: Vec<&str>, domain_store: &mut DomainStore) {
+        let domains = domains.into_par_iter().filter_map(dns_resolvable);
 
-        println!("Result: {:#?}", result);
+        domains.for_each(|resolved| {
+            let mut _domain_store = domain_store.lock().unwrap();
+
+            match _domain_store.get_mut(&resolved.fqdn) {
+                Some(domain_metadata) => {
+                    domain_metadata.ips = Box::new(resolved.ips);
+                }
+                None => {
+                    let domain_metadata = DomainMetadata {
+                        ips: Box::new(resolved.ips),
+                    };
+                    _domain_store.insert(resolved.fqdn, domain_metadata);
+                }
+            }
+        });
     }
 }
 

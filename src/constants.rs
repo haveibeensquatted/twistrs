@@ -1,6 +1,6 @@
 use phf::phf_map;
 use publicsuffix::List;
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use rayon::ThreadPoolBuilder;
 
 // Stack allocate these at compile time
 pub static ASCII_LOWER: [char; 26] = [
