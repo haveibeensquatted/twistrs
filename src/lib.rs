@@ -117,6 +117,8 @@ pub enum PermutationMode {
     Repetition,
     Replacement,
     Subdomain,
+    Transposition,
+    //VowelSwap,
     // TODO(jdb): Add remaining modes
 }
 
@@ -161,6 +163,7 @@ impl<'a> Domain<'a> {
             PermutationMode::Repetition => Ok(self.repetition()),
             PermutationMode::Replacement => Ok(self.replacement()),
             PermutationMode::Subdomain => Ok(self.subdomain()),
+            PermutationMode::Transposition => Ok(self.transposition()),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "permutation mode passed is currently unimplemented",
@@ -354,6 +357,30 @@ impl<'a> Domain<'a> {
 
         result
     }
+
+    fn transposition(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
+        let fqdn = self.fqdn.chars().collect::<Vec<char>>();
+
+        for (i, c) in fqdn.iter().enumerate() {
+            if i == 0 || i == self.fqdn.len() - 1 {
+                continue;
+            }
+
+            let prev_char = &fqdn[i - 1];
+            if c != prev_char {
+                result.push(format!(
+                    "{}{}{}{}",
+                    &self.fqdn[..i],
+                    &fqdn[i + 1],
+                    c,
+                    &self.fqdn[i + 2..]
+                ));
+            }
+        }
+
+        result
+    }
 }
 
 // CLEANUP(jdb): Move this into its own module
@@ -493,6 +520,19 @@ mod tests {
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Subdomain) {
+            Ok(permutations) => {
+                assert!(permutations.len() > 0);
+            }
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
+    fn test_transposition_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+
+        // These are kind of lazy for the time being...
+        match d.mutate(PermutationMode::Transposition) {
             Ok(permutations) => {
                 dbg!(&permutations);
                 assert!(permutations.len() > 0);
