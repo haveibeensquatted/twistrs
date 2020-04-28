@@ -15,7 +15,7 @@ A domain fuzzing tool that is effectively a Rust port of [dnstwist](https://gith
 - Homoglyph ❌
 - Hyphenation ✅
 - Insertion ✅
-- Omission ❌
+- Omission ✅
 - Repetition ❌
 - Replacement ❌
 - Sub-domain ❌
@@ -24,7 +24,7 @@ A domain fuzzing tool that is effectively a Rust port of [dnstwist](https://gith
 
 #### Features
 
-- DNS lookup ❌
+- DNS lookup ✅
 - MX parsing ❌
 
 #### Misc

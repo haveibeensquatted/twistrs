@@ -114,6 +114,7 @@ pub enum PermutationMode {
     Hyphenation,
     Insertion,
     Omission,
+    Repetition,
     // TODO(jdb): Add remaining modes
 }
 
@@ -155,6 +156,7 @@ impl<'a> Domain<'a> {
             PermutationMode::Hyphenation => Ok(self.hyphentation()),
             PermutationMode::Insertion => Ok(self.insertion()),
             PermutationMode::Omission => Ok(self.omission()),
+            PermutationMode::Repetition => Ok(self.repetition()),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "permutation mode passed is currently unimplemented",
@@ -278,6 +280,24 @@ impl<'a> Domain<'a> {
 
         result
     }
+
+    fn repetition(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
+
+        for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
+            // @CLEANUP(jdb): Any way to do this nicely? Just want to avoid
+            //                out of bounds issues.
+            if i == self.fqdn.len() {
+                break;
+            }
+
+            if c.is_alphabetic() {
+                result.push(format!("{}{}{}", &self.fqdn[..=i], c, &self.fqdn[i + 1..]));
+            }
+        }
+
+        result
+    }
 }
 
 // CLEANUP(jdb): Move this into its own module
@@ -378,6 +398,19 @@ mod tests {
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Omission) {
+            Ok(permutations) => {
+                assert!(permutations.len() > 0);
+            }
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
+    fn test_repetition_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+
+        // These are kind of lazy for the time being...
+        match d.mutate(PermutationMode::Repetition) {
             Ok(permutations) => {
                 dbg!(&permutations);
                 assert!(permutations.len() > 0);
