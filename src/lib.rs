@@ -115,6 +115,7 @@ pub enum PermutationMode {
     Insertion,
     Omission,
     Repetition,
+    Replacement,
     // TODO(jdb): Add remaining modes
 }
 
@@ -157,6 +158,7 @@ impl<'a> Domain<'a> {
             PermutationMode::Insertion => Ok(self.insertion()),
             PermutationMode::Omission => Ok(self.omission()),
             PermutationMode::Repetition => Ok(self.repetition()),
+            PermutationMode::Replacement => Ok(self.replacement()),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "permutation mode passed is currently unimplemented",
@@ -298,6 +300,38 @@ impl<'a> Domain<'a> {
 
         result
     }
+
+    fn replacement(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
+
+        for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
+            // We do not want to insert in the beginning or in the end of the domain
+            if i == 0 || i == self.fqdn.len() - 1 {
+                continue;
+            }
+
+            for keyboard_layout in KEYBOARD_LAYOUTS.iter() {
+                if keyboard_layout.contains_key(c) {
+                    for keyboard_char in keyboard_layout
+                        .get(c)
+                        .unwrap()
+                        .chars()
+                        .collect::<Vec<char>>()
+                        .iter()
+                    {
+                        result.push(format!(
+                            "{}{}{}",
+                            &self.fqdn[..i],
+                            *keyboard_char,
+                            &self.fqdn[i + 1..]
+                        ));
+                    }
+                }
+            }
+        }
+
+        result
+    }
 }
 
 // CLEANUP(jdb): Move this into its own module
@@ -411,6 +445,19 @@ mod tests {
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Repetition) {
+            Ok(permutations) => {
+                assert!(permutations.len() > 0);
+            }
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
+    fn test_replacement_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+
+        // These are kind of lazy for the time being...
+        match d.mutate(PermutationMode::Replacement) {
             Ok(permutations) => {
                 dbg!(&permutations);
                 assert!(permutations.len() > 0);
