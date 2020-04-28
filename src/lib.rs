@@ -75,7 +75,7 @@ extern crate lazy_static;
 mod constants;
 
 use constants::{ASCII_LOWER, DOMAIN_LIST, KEYBOARD_LAYOUTS};
-use dns::stub;
+use dns::enrich;
 
 use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind};
@@ -100,11 +100,9 @@ type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
 #[derive(Default, Debug)]
 pub struct Domain<'a> {
     pub fqdn: &'a str,
-    pub permutations: HashSet<String>,
 
     tld: String,
     domain: String,
-    resolved_domains: DomainStore,
 }
 
 #[derive(Copy, Clone)]
@@ -139,15 +137,8 @@ impl<'a> Domain<'a> {
 
                 let tld = format!("{}", String::from(parts[len - 1]));
                 let domain = String::from(parts[len - 2]);
-                let resolved_domains = Arc::new(Mutex::new(HashMap::new()));
 
-                Ok(Domain {
-                    fqdn,
-                    permutations: HashSet::new(),
-                    tld,
-                    domain,
-                    resolved_domains,
-                })
+                Ok(Domain { fqdn, tld, domain })
             }
 
             // TODO(jdb): See how we can pass the lazy_static error here
@@ -156,7 +147,7 @@ impl<'a> Domain<'a> {
         }
     }
 
-    pub fn mutate(&'a mut self, mode: PermutationMode) -> Result<&Domain<'a>, Error> {
+    pub fn mutate(&self, mode: PermutationMode) -> Result<Vec<String>, Error> {
         match mode {
             PermutationMode::Addition => Ok(self.addition()),
             PermutationMode::BitSquatting => Ok(self.bitsquatting()),
@@ -169,26 +160,16 @@ impl<'a> Domain<'a> {
         }
     }
 
-    fn addition(&'a mut self) -> &Domain<'a> {
+    fn addition(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
         for c in ASCII_LOWER.iter() {
-            self.permutations
-                .insert(format!("{}{}.{}", self.domain, c.to_string(), self.tld));
+            result.push(format!("{}{}.{}", self.domain, c.to_string(), self.tld));
         }
 
-        stub(
-            self.permutations
-                .iter()
-                .map(|s| &**s)
-                .collect::<Vec<&str>>(),
-            &mut self.resolved_domains,
-        );
-
-        dbg!(&self);
-
-        self
+        result
     }
 
-    fn bitsquatting(&'a mut self) -> &Domain<'a> {
+    fn bitsquatting(&self) -> Vec<String> {
         // Following implementation takes inspiration from the following content:
         //  - https://github.com/artemdinaburg/bitsquat-script/blob/master/bitsquat.py
         //  - http://dinaburg.org/bitsquatting.html
@@ -205,6 +186,7 @@ impl<'a> Domain<'a> {
         //
         //  Then check if the resulting bit operation falls within ASCII range.
 
+        let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
         for c in fqdn.chars().collect::<Vec<char>>().iter() {
@@ -222,16 +204,17 @@ impl<'a> Domain<'a> {
                     for idx in 1..fqdn.len() {
                         let mut permutation = self.fqdn.to_string();
                         permutation.insert(idx, squatted_char as char);
-                        self.permutations.insert(permutation);
+                        result.push(permutation);
                     }
                 }
             }
         }
 
-        self
+        result
     }
 
-    fn hyphentation(&'a mut self) -> &Domain<'a> {
+    fn hyphentation(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
         for (i, _) in fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -242,13 +225,14 @@ impl<'a> Domain<'a> {
 
             let mut permutation = self.fqdn.to_string();
             permutation.insert(i, '-');
-            self.permutations.insert(permutation);
+            result.push(permutation);
         }
 
-        self
+        result
     }
 
-    fn insertion(&'a mut self) -> &Domain<'a> {
+    fn insertion(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
         for (i, c) in fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -268,13 +252,13 @@ impl<'a> Domain<'a> {
                     {
                         let mut permutation = self.fqdn.to_string();
                         permutation.insert(i, *keyboard_char);
-                        self.permutations.insert(permutation);
+                        result.push(permutation);
                     }
                 }
             }
         }
 
-        self
+        result
     }
 }
 
@@ -300,7 +284,9 @@ mod dns {
         }
     }
 
-    pub fn stub(domains: Vec<&str>, domain_store: &mut DomainStore) {
+    pub fn enrich(domains: Vec<&str>, domain_store: &mut DomainStore) {
+        // First level of enrichment, resolves the domain and adds its
+        // list of resolved IPs.
         let domains = domains.into_par_iter().filter_map(dns_resolvable);
 
         domains.for_each(|resolved| {
@@ -328,10 +314,9 @@ mod tests {
     #[test]
     fn test_addition_mode() {
         let mut d = Domain::new("www.example.com").unwrap();
-        assert_eq!(d.permutations.len(), 0);
 
         match d.mutate(PermutationMode::Addition) {
-            Ok(v) => assert_eq!(v.permutations.len(), ASCII_LOWER.len()),
+            Ok(permutations) => assert_eq!(permutations.len(), ASCII_LOWER.len()),
             Err(e) => panic!(e),
         }
     }
@@ -339,11 +324,10 @@ mod tests {
     #[test]
     fn test_bitsquatting_mode() {
         let mut d = Domain::new("www.example.com").unwrap();
-        assert_eq!(d.permutations.len(), 0);
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::BitSquatting) {
-            Ok(v) => assert!(v.permutations.len() > 0),
+            Ok(permutations) => assert!(permutations.len() > 0),
             Err(e) => panic!(e),
         }
     }
@@ -351,11 +335,10 @@ mod tests {
     #[test]
     fn test_hyphenation_mode() {
         let mut d = Domain::new("www.example.com").unwrap();
-        assert_eq!(d.permutations.len(), 0);
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Hyphenation) {
-            Ok(v) => assert!(v.permutations.len() > 0),
+            Ok(permutations) => assert!(permutations.len() > 0),
             Err(e) => panic!(e),
         }
     }
@@ -363,11 +346,44 @@ mod tests {
     #[test]
     fn test_insertion_mode() {
         let mut d = Domain::new("www.example.com").unwrap();
-        assert_eq!(d.permutations.len(), 0);
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Insertion) {
-            Ok(v) => assert!(v.permutations.len() > 0),
+            Ok(permutations) => assert!(permutations.len() > 0),
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
+    fn test_data_enrichment() {
+        let mut d = Domain::new("www.example.com").unwrap();
+        let mut resolved_domains = Arc::new(Mutex::new(HashMap::new()));
+
+        match d.mutate(PermutationMode::Addition) {
+            Ok(permutations) => {
+                enrich(
+                    permutations.iter().map(|s| &**s).collect::<Vec<&str>>(),
+                    &mut resolved_domains,
+                );
+            }
+            Err(e) => panic!(e),
+        }
+        match d.mutate(PermutationMode::Insertion) {
+            Ok(permutations) => {
+                enrich(
+                    permutations.iter().map(|s| &**s).collect::<Vec<&str>>(),
+                    &mut resolved_domains,
+                );
+            }
+            Err(e) => panic!(e),
+        }
+        match d.mutate(PermutationMode::BitSquatting) {
+            Ok(permutations) => {
+                enrich(
+                    permutations.iter().map(|s| &**s).collect::<Vec<&str>>(),
+                    &mut resolved_domains,
+                );
+            }
             Err(e) => panic!(e),
         }
     }
