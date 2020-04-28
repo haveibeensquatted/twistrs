@@ -113,6 +113,7 @@ pub enum PermutationMode {
     Homoglyph,
     Hyphenation,
     Insertion,
+    Omission,
     // TODO(jdb): Add remaining modes
 }
 
@@ -153,6 +154,7 @@ impl<'a> Domain<'a> {
             PermutationMode::BitSquatting => Ok(self.bitsquatting()),
             PermutationMode::Hyphenation => Ok(self.hyphentation()),
             PermutationMode::Insertion => Ok(self.insertion()),
+            PermutationMode::Omission => Ok(self.omission()),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "permutation mode passed is currently unimplemented",
@@ -260,6 +262,22 @@ impl<'a> Domain<'a> {
 
         result
     }
+
+    fn omission(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
+
+        for (i, _) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
+            // @CLEANUP(jdb): Any way to do this nicely? Just want to avoid
+            //                out of bounds issues.
+            if i == self.fqdn.len() {
+                break;
+            }
+
+            result.push(format!("{}{}", &self.fqdn[..i], &self.fqdn[i + 1..]));
+        }
+
+        result
+    }
 }
 
 // CLEANUP(jdb): Move this into its own module
@@ -313,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_addition_mode() {
-        let mut d = Domain::new("www.example.com").unwrap();
+        let d = Domain::new("www.example.com").unwrap();
 
         match d.mutate(PermutationMode::Addition) {
             Ok(permutations) => assert_eq!(permutations.len(), ASCII_LOWER.len()),
@@ -323,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_bitsquatting_mode() {
-        let mut d = Domain::new("www.example.com").unwrap();
+        let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::BitSquatting) {
@@ -334,7 +352,7 @@ mod tests {
 
     #[test]
     fn test_hyphenation_mode() {
-        let mut d = Domain::new("www.example.com").unwrap();
+        let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Hyphenation) {
@@ -345,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_insertion_mode() {
-        let mut d = Domain::new("www.example.com").unwrap();
+        let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Insertion) {
@@ -355,8 +373,22 @@ mod tests {
     }
 
     #[test]
+    fn test_omission_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+
+        // These are kind of lazy for the time being...
+        match d.mutate(PermutationMode::Omission) {
+            Ok(permutations) => {
+                dbg!(&permutations);
+                assert!(permutations.len() > 0);
+            }
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
     fn test_data_enrichment() {
-        let mut d = Domain::new("www.example.com").unwrap();
+        let d = Domain::new("www.example.com").unwrap();
         let mut resolved_domains = Arc::new(Mutex::new(HashMap::new()));
 
         match d.mutate(PermutationMode::Addition) {
@@ -368,6 +400,7 @@ mod tests {
             }
             Err(e) => panic!(e),
         }
+
         match d.mutate(PermutationMode::Insertion) {
             Ok(permutations) => {
                 enrich(
@@ -377,6 +410,7 @@ mod tests {
             }
             Err(e) => panic!(e),
         }
+
         match d.mutate(PermutationMode::BitSquatting) {
             Ok(permutations) => {
                 enrich(
