@@ -74,7 +74,7 @@ extern crate lazy_static;
 
 mod constants;
 
-use constants::{ASCII_LOWER, DOMAIN_LIST, KEYBOARD_LAYOUTS};
+use constants::{ASCII_LOWER, DOMAIN_LIST, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
 use dns::enrich;
 
 use std::collections::{HashMap, HashSet};
@@ -118,7 +118,7 @@ pub enum PermutationMode {
     Replacement,
     Subdomain,
     Transposition,
-    //VowelSwap,
+    VowelSwap,
     // TODO(jdb): Add remaining modes
 }
 
@@ -157,6 +157,7 @@ impl<'a> Domain<'a> {
         match mode {
             PermutationMode::Addition => Ok(self.addition()),
             PermutationMode::BitSquatting => Ok(self.bitsquatting()),
+            PermutationMode::Homoglyph => Ok(self.homoglyph()),
             PermutationMode::Hyphenation => Ok(self.hyphentation()),
             PermutationMode::Insertion => Ok(self.insertion()),
             PermutationMode::Omission => Ok(self.omission()),
@@ -164,6 +165,7 @@ impl<'a> Domain<'a> {
             PermutationMode::Replacement => Ok(self.replacement()),
             PermutationMode::Subdomain => Ok(self.subdomain()),
             PermutationMode::Transposition => Ok(self.transposition()),
+            PermutationMode::VowelSwap => Ok(self.vowel_swap()),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "permutation mode passed is currently unimplemented",
@@ -222,6 +224,70 @@ impl<'a> Domain<'a> {
         }
 
         result
+    }
+
+    fn homoglyph(&self) -> Vec<String> {
+        // @CLEANUP(jdb): Tidy this entire mess up
+        let mut result_first_pass: HashSet<String> = HashSet::new();
+        let mut result_second_pass: HashSet<String> = HashSet::new();
+
+        let fqdn = self.fqdn.to_string().chars().collect::<Vec<char>>();
+
+        for (ws, _) in fqdn.iter().enumerate() {
+            for i in 0..(self.fqdn.len() - ws) + 1 {
+                let win: String = fqdn[i..i + ws].iter().collect();
+                let mut j = 0;
+
+                while j < ws {
+                    let c: char = win.chars().nth(j).unwrap();
+
+                    if HOMOGLYPHS.contains_key(&c) {
+                        for glyph in HOMOGLYPHS.get(&c) {
+                            let new_win = win.replace(c, glyph);
+                            result_first_pass.insert(format!(
+                                "{}{}{}",
+                                &self.fqdn[..i],
+                                &new_win,
+                                &self.fqdn[i + ws..]
+                            ));
+                        }
+                    }
+
+                    j += 1;
+                }
+            }
+        }
+
+        for domain in result_first_pass.iter() {
+            for ws in 1..fqdn.len() {
+                for i in 0..(fqdn.len() - ws) + 1 {
+                    let win: String = domain[i..i + ws].to_string();
+                    let mut j = 0;
+
+                    while j < ws {
+                        let c: char = win.chars().nth(j).unwrap();
+
+                        if HOMOGLYPHS.contains_key(&c) {
+                            for glyph in HOMOGLYPHS.get(&c) {
+                                let new_win = win.replace(c, glyph);
+                                result_second_pass.insert(format!(
+                                    "{}{}{}",
+                                    &self.fqdn[..i],
+                                    &new_win,
+                                    &self.fqdn[i + ws..]
+                                ));
+                            }
+                        }
+
+                        j += 1;
+                    }
+                }
+            }
+        }
+
+        // FIXME(jdb): This needs to XOR (^) first and second pass
+        //             to work as intended.
+        (result_first_pass).into_iter().collect()
     }
 
     fn hyphentation(&self) -> Vec<String> {
@@ -381,6 +447,25 @@ impl<'a> Domain<'a> {
 
         result
     }
+
+    fn vowel_swap(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
+
+        for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
+            for vowel in VOWELS.iter() {
+                if VOWELS.contains(c) {
+                    result.push(format!(
+                        "{}{}{}",
+                        &self.fqdn[..i],
+                        *vowel,
+                        &self.fqdn[i + 1..]
+                    ));
+                }
+            }
+        }
+
+        result
+    }
 }
 
 // CLEANUP(jdb): Move this into its own module
@@ -535,6 +620,19 @@ mod tests {
         match d.mutate(PermutationMode::Transposition) {
             Ok(permutations) => {
                 dbg!(&permutations);
+                assert!(permutations.len() > 0);
+            }
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
+    fn test_vowel_swap_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+
+        // These are kind of lazy for the time being...
+        match d.mutate(PermutationMode::VowelSwap) {
+            Ok(permutations) => {
                 assert!(permutations.len() > 0);
             }
             Err(e) => panic!(e),

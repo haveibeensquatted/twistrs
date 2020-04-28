@@ -12,15 +12,15 @@ A domain fuzzing tool that is effectively a Rust port of [dnstwist](https://gith
 
 - Addition ✅
 - Bit Squatting ✅
-- Homoglyph ❌
+- Homoglyph ✅
 - Hyphenation ✅
 - Insertion ✅
 - Omission ✅
-- Repetition ❌
-- Replacement ❌
-- Sub-domain ❌
-- Transposition ❌
-- Vowel-swap ❌
+- Repetition ✅
+- Replacement ✅
+- Sub-domain ✅
+- Transposition ✅
+- Vowel-swap ✅
 
 #### Features
 

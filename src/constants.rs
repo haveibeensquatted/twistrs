@@ -8,6 +8,8 @@ pub static ASCII_LOWER: [char; 26] = [
     't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
+pub static VOWELS: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
+
 lazy_static! {
     pub static ref DOMAIN_LIST: List =
         List::from_path("src/database/effective_tld_names.dat").unwrap();
@@ -136,6 +138,34 @@ static AZERTY_KEYBOARD_LAYOUT: phf::Map<char, &'static str> = phf_map! {
     'v'=> "cfgb",
     'b'=> "vghn",
     'n'=> "bhj"
+};
+
+pub static HOMOGLYPHS: phf::Map<char, &'static str> = phf_map! {
+    'a' => "àáâãäåɑạǎăȧą",
+    'b' => "dʙɓḃḅḇƅ",
+    'c' => "eƈċćçčĉo",
+    'd' => "bɗđďɖḑḋḍḏḓ",
+    'e' => "céèêëēĕěėẹęȩɇḛ",
+    'f' => "ƒḟ",
+    'g' => "qɢɡġğǵģĝǧǥ",
+    'h' => "ĥȟħɦḧḩⱨḣḥḫẖ",
+    'i' => "1líìïıɩǐĭỉịɨȋī",
+    'j' => "ʝɉ",
+    'k' => "ḳḵⱪķ",
+    'l' => "1iɫł",
+    'm' => "nṁṃᴍɱḿ",
+    'n' => "mrńṅṇṉñņǹňꞑ",
+    'o' => "0ȯọỏơóö",
+    'p' => "ƿƥṕṗ",
+    'q' => "gʠ",
+    'r' => "ʀɼɽŕŗřɍɾȓȑṙṛṟ",
+    's' => "ʂśṣṡșŝš",
+    't' => "ţŧṫṭțƫ",
+    'u' => "ᴜǔŭüʉùúûũūųưůűȕȗụ",
+    'v' => "ṿⱱᶌṽⱴ",
+    'w' => "ŵẁẃẅⱳẇẉẘ",
+    'y' => "ʏýÿŷƴȳɏỿẏỵ",
+    'z' => "ʐżźᴢƶẓẕⱬ"
 };
 
 lazy_static! {
