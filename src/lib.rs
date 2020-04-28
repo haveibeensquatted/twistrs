@@ -116,6 +116,7 @@ pub enum PermutationMode {
     Omission,
     Repetition,
     Replacement,
+    Subdomain,
     // TODO(jdb): Add remaining modes
 }
 
@@ -159,6 +160,7 @@ impl<'a> Domain<'a> {
             PermutationMode::Omission => Ok(self.omission()),
             PermutationMode::Repetition => Ok(self.repetition()),
             PermutationMode::Replacement => Ok(self.replacement()),
+            PermutationMode::Subdomain => Ok(self.subdomain()),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "permutation mode passed is currently unimplemented",
@@ -332,6 +334,26 @@ impl<'a> Domain<'a> {
 
         result
     }
+
+    fn subdomain(&self) -> Vec<String> {
+        let mut result: Vec<String> = vec![];
+        let fqdn = self.fqdn.chars().collect::<Vec<char>>();
+
+        for (i, c) in fqdn.iter().enumerate() {
+            if i == 0 || i > self.fqdn.len() - 3 {
+                continue;
+            }
+
+            let prev_char = &fqdn[i - 1];
+            let invalid_chars = vec!['-', '.'];
+
+            if !invalid_chars.contains(c) && !invalid_chars.contains(prev_char) {
+                result.push(format!("{}.{}", &self.fqdn[..i], &self.fqdn[i..]));
+            }
+        }
+
+        result
+    }
 }
 
 // CLEANUP(jdb): Move this into its own module
@@ -458,6 +480,19 @@ mod tests {
 
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Replacement) {
+            Ok(permutations) => {
+                assert!(permutations.len() > 0);
+            }
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
+    fn test_subdomain_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+
+        // These are kind of lazy for the time being...
+        match d.mutate(PermutationMode::Subdomain) {
             Ok(permutations) => {
                 dbg!(&permutations);
                 assert!(permutations.len() > 0);
