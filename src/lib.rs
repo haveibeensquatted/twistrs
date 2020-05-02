@@ -234,7 +234,7 @@ impl<'a> Domain<'a> {
 
         let fqdn = self.fqdn.to_string().chars().collect::<Vec<char>>();
 
-        for (ws, _) in fqdn.iter().enumerate() {
+        for ws in 1..self.fqdn.len() {
             for i in 0..(self.fqdn.len() - ws) + 1 {
                 let win: String = fqdn[i..i + ws].iter().collect();
                 let mut j = 0;
@@ -244,13 +244,17 @@ impl<'a> Domain<'a> {
 
                     if HOMOGLYPHS.contains_key(&c) {
                         for glyph in HOMOGLYPHS.get(&c) {
-                            let new_win = win.replace(c, glyph);
-                            result_first_pass.insert(format!(
-                                "{}{}{}",
-                                &self.fqdn[..i],
-                                &new_win,
-                                &self.fqdn[i + ws..]
-                            ));
+                            let _glyph = glyph.chars().collect::<Vec<char>>();
+
+                            for g in _glyph {
+                                let new_win = win.replace(c, &g.to_string());
+                                result_first_pass.insert(format!(
+                                    "{}{}{}",
+                                    &self.fqdn[..i],
+                                    &new_win,
+                                    &self.fqdn[i + ws..]
+                                ));
+                            }
                         }
                     }
 
@@ -260,9 +264,14 @@ impl<'a> Domain<'a> {
         }
 
         for domain in result_first_pass.iter() {
+            // We need to do this as we are dealing with UTF8 characters
+            // meaning that we cannot simple iterate over single byte
+            // values (as certain characters are composed of two or more)
+            let _domain = domain.chars().collect::<Vec<char>>();
+
             for ws in 1..fqdn.len() {
                 for i in 0..(fqdn.len() - ws) + 1 {
-                    let win: String = domain[i..i + ws].to_string();
+                    let win: String = _domain[i..i + ws].iter().collect();
                     let mut j = 0;
 
                     while j < ws {
@@ -270,13 +279,17 @@ impl<'a> Domain<'a> {
 
                         if HOMOGLYPHS.contains_key(&c) {
                             for glyph in HOMOGLYPHS.get(&c) {
-                                let new_win = win.replace(c, glyph);
-                                result_second_pass.insert(format!(
-                                    "{}{}{}",
-                                    &self.fqdn[..i],
-                                    &new_win,
-                                    &self.fqdn[i + ws..]
-                                ));
+                                let _glyph = glyph.chars().collect::<Vec<char>>();
+
+                                for g in _glyph {
+                                    let new_win = win.replace(c, &g.to_string());
+                                    result_second_pass.insert(format!(
+                                        "{}{}{}",
+                                        &self.fqdn[..i],
+                                        &new_win,
+                                        &self.fqdn[i + ws..]
+                                    ));
+                                }
                             }
                         }
 
