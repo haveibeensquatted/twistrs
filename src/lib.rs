@@ -76,11 +76,11 @@ mod constants;
 
 use constants::{ASCII_LOWER, DOMAIN_LIST, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
 use dns::enrich;
+use rayon::prelude::*;
 
 use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind};
 use std::net::IpAddr;
-use std::ops::BitOr;
 use std::sync::{Arc, Mutex};
 
 /// Container to store interesting FQDN metadata
@@ -167,10 +167,46 @@ impl<'a> Domain<'a> {
             PermutationMode::Subdomain => Ok(self.subdomain()),
             PermutationMode::Transposition => Ok(self.transposition()),
             PermutationMode::VowelSwap => Ok(self.vowel_swap()),
-            _ => Err(Error::new(
-                ErrorKind::Other,
-                "permutation mode passed is currently unimplemented",
-            )),
+            PermutationMode::All => {
+                let modes = vec![
+                    PermutationMode::Addition,
+                    PermutationMode::BitSquatting,
+                    PermutationMode::Homoglyph,
+                    PermutationMode::Hyphenation,
+                    PermutationMode::Insertion,
+                    PermutationMode::Omission,
+                    PermutationMode::Repetition,
+                    PermutationMode::Replacement,
+                    PermutationMode::Subdomain,
+                    PermutationMode::Transposition,
+                    PermutationMode::VowelSwap,
+                ];
+
+                let permutations = Arc::new(Mutex::new(vec![]));
+
+                modes
+                    .into_par_iter()
+                    .for_each(|mode| match self.mutate(mode) {
+                        Ok(mutations) => {
+                            for mutation in mutations.iter() {
+                                permutations.lock().unwrap().push(String::from(mutation));
+                            }
+                        }
+                        Err(e) => panic!(e),
+                    });
+
+                // TODO(jdb): Not sure if this even makes sense...
+                // CLEANUP(jdb): See how we can just pass in the original
+                //               set of permutations without having to do
+                //               this entire dance.
+                let mut v = vec![];
+
+                for p in permutations.lock().unwrap().iter() {
+                    v.push(String::from(p));
+                }
+
+                Ok(v)
+            }
         }
     }
 
@@ -559,7 +595,6 @@ mod tests {
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Homoglyph) {
             Ok(permutations) => {
-                dbg!(&permutations);
                 assert!(permutations.len() > 0);
             }
             Err(e) => panic!(e),
@@ -672,32 +707,14 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let mut resolved_domains = Arc::new(Mutex::new(HashMap::new()));
 
-        match d.mutate(PermutationMode::Addition) {
+        match d.mutate(PermutationMode::All) {
             Ok(permutations) => {
                 enrich(
                     permutations.iter().map(|s| &**s).collect::<Vec<&str>>(),
                     &mut resolved_domains,
                 );
-            }
-            Err(e) => panic!(e),
-        }
 
-        match d.mutate(PermutationMode::Insertion) {
-            Ok(permutations) => {
-                enrich(
-                    permutations.iter().map(|s| &**s).collect::<Vec<&str>>(),
-                    &mut resolved_domains,
-                );
-            }
-            Err(e) => panic!(e),
-        }
-
-        match d.mutate(PermutationMode::BitSquatting) {
-            Ok(permutations) => {
-                enrich(
-                    permutations.iter().map(|s| &**s).collect::<Vec<&str>>(),
-                    &mut resolved_domains,
-                );
+                dbg!(&resolved_domains);
             }
             Err(e) => panic!(e),
         }
