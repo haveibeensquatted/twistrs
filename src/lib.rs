@@ -80,6 +80,7 @@ use dns::enrich;
 use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind};
 use std::net::IpAddr;
+use std::ops::BitOr;
 use std::sync::{Arc, Mutex};
 
 /// Container to store interesting FQDN metadata
@@ -285,9 +286,9 @@ impl<'a> Domain<'a> {
             }
         }
 
-        // FIXME(jdb): This needs to XOR (^) first and second pass
-        //             to work as intended.
-        (result_first_pass).into_iter().collect()
+        (&result_first_pass | &result_second_pass)
+            .into_iter()
+            .collect()
     }
 
     fn hyphentation(&self) -> Vec<String> {
@@ -534,6 +535,20 @@ mod tests {
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::BitSquatting) {
             Ok(permutations) => assert!(permutations.len() > 0),
+            Err(e) => panic!(e),
+        }
+    }
+
+    #[test]
+    fn test_homoglyph_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+
+        // These are kind of lazy for the time being...
+        match d.mutate(PermutationMode::Homoglyph) {
+            Ok(permutations) => {
+                dbg!(&permutations);
+                assert!(permutations.len() > 0);
+            }
             Err(e) => panic!(e),
         }
     }
