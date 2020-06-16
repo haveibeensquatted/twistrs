@@ -7,6 +7,8 @@ edition = "2018"
 [dependencies]
 publicsuffix = "1.5"
 lazy_static  = "1.4.0"
-phf	     = { version = "0.8.0", features = ["macros"] }
+phf	         = { version = "0.8.0", features = ["macros"] }
 rayon        = "1.3.0"
 dns-lookup   = "1.0.1"
+lettre       = "0.9.3"
+lettre_email = "0.9.3"

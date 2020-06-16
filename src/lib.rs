@@ -75,28 +75,11 @@ extern crate lazy_static;
 mod constants;
 
 use constants::{ASCII_LOWER, DOMAIN_LIST, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
-use dns::enrich;
 use rayon::prelude::*;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
-use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
-
-/// Container to store interesting FQDN metadata
-/// on domains that we resolvable and have some
-/// interesting properties.
-#[derive(Debug)]
-pub struct DomainMetadata {
-    ips: Box<Vec<IpAddr>>,
-}
-
-// TODO(jdb): Does it make sense that this container is kept in the
-//            library? We need a way to store resolved domains in a
-//            thread-safe manner. In this case, we need rayon to be
-//            to add all resolved domains in a single container wit-
-//            hout having to worry about thread safety as much.
-type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
 
 #[derive(Default, Debug)]
 pub struct Domain<'a> {
@@ -520,21 +503,78 @@ impl<'a> Domain<'a> {
 
 // CLEANUP(jdb): Move this into its own module
 mod dns {
-    use super::{DomainMetadata, DomainStore};
     use dns_lookup::lookup_host;
     use rayon::prelude::*;
+    use std::collections::HashMap;
     use std::net::IpAddr;
+    use std::sync::{Arc, Mutex};
 
+    use lettre::{SmtpClient, Transport};
+    use lettre_email::EmailBuilder;
+
+    /// Container to store interesting FQDN metadata
+    /// on domains that we resolvable and have some
+    /// interesting properties.
+    #[derive(Debug)]
+    pub struct DomainMetadata {
+        ips: Box<Vec<IpAddr>>,
+        smtp: Option<SmtpMetadata>,
+    }
+
+    // TODO(jdb): Does it make sense that this container is kept in the
+    //            library? We need a way to store resolved domains in a
+    //            thread-safe manner. In this case, we need rayon to be
+    //            to add all resolved domains in a single container wit-
+    //            hout having to worry about thread safety as much.
+    type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
+
+    #[derive(Debug)]
     struct ResolvedDomain {
         fqdn: String,
         ips: Vec<IpAddr>,
     }
 
-    fn dns_resolvable<'a>(addr: &'a str) -> Option<ResolvedDomain> {
-        match lookup_host(addr) {
-            Ok(ips) => Some(ResolvedDomain {
-                fqdn: String::from(addr),
-                ips,
+    #[derive(Debug)]
+    struct SmtpMetadata {
+        // @CLEANUP(jdb): It's not ideal to keep having to duplicate the
+        //                fqdn field on each struct here just to be able
+        //                to pass it down to rayon...
+        fqdn: String,
+        is_positive: bool,
+        message: String,
+    }
+
+    fn dns_resolvable(addr: String) -> Option<ResolvedDomain> {
+        match lookup_host(&addr) {
+            Ok(ips) => Some(ResolvedDomain { fqdn: addr, ips }),
+            Err(_) => None,
+        }
+    }
+
+    fn smtp_transport_simple(addr: String) -> Option<SmtpMetadata> {
+        let email = EmailBuilder::new()
+            .to("twistr@example.org")
+            .from("twistr@example.com")
+            .subject("")
+            .text("And that's how the cookie crumbles")
+            .build()
+            .unwrap();
+
+        // Open a local connection on port 25
+        let mut mailer = SmtpClient::new_unencrypted_localhost().unwrap().transport();
+
+        // Send the email
+        let result = mailer.send(email.into());
+
+        match result {
+            Ok(response) => Some(SmtpMetadata {
+                fqdn: addr,
+                is_positive: response.is_positive(),
+                message: response
+                    .message
+                    .into_iter()
+                    .map(|s| s.to_string())
+                    .collect::<String>(),
             }),
             Err(_) => None,
         }
@@ -543,9 +583,13 @@ mod dns {
     pub fn enrich(domains: Vec<&str>, domain_store: &mut DomainStore) {
         // First level of enrichment, resolves the domain and adds its
         // list of resolved IPs.
-        let domains = domains.into_par_iter().filter_map(dns_resolvable);
 
-        domains.for_each(|resolved| {
+        let domains: Vec<String> = domains.into_iter().map(|x| x.to_owned()).collect();
+
+        let first_pass: Vec<String> = domains.iter().cloned().collect();
+        let resolved_domains = first_pass.into_par_iter().filter_map(dns_resolvable);
+
+        resolved_domains.for_each(|resolved| {
             let mut _domain_store = domain_store.lock().unwrap();
 
             match _domain_store.get_mut(&resolved.fqdn) {
@@ -555,8 +599,42 @@ mod dns {
                 None => {
                     let domain_metadata = DomainMetadata {
                         ips: Box::new(resolved.ips),
+                        smtp: None,
                     };
                     _domain_store.insert(resolved.fqdn, domain_metadata);
+                }
+            }
+        });
+
+        // @CLEANUP(jdb): This should iterate over the resolved domains only?
+        let second_pass: Vec<String> = domains.iter().cloned().collect();
+        let smtp_domains = second_pass
+            .into_par_iter()
+            .filter_map(smtp_transport_simple);
+
+        smtp_domains.for_each(|smtp_server| {
+            let mut _domain_store = domain_store.lock().unwrap();
+
+            match _domain_store.get_mut(&smtp_server.fqdn) {
+                Some(domain_metadata) => {
+                    domain_metadata.smtp = Some(SmtpMetadata {
+                        fqdn: smtp_server.fqdn.to_string(),
+                        is_positive: smtp_server.is_positive,
+                        message: smtp_server.message,
+                    });
+                }
+                None => {
+                    let domain_metadata = DomainMetadata {
+                        ips: Box::new(vec![]),
+                        smtp: Some(SmtpMetadata {
+                            fqdn: smtp_server.fqdn.to_string(),
+                            is_positive: smtp_server.is_positive,
+                            message: smtp_server.message,
+                        }),
+                    };
+
+                    // @CLEANUP(jdb): Remove this clone...
+                    _domain_store.insert(smtp_server.fqdn.clone(), domain_metadata);
                 }
             }
         });
@@ -565,7 +643,10 @@ mod dns {
 
 #[cfg(test)]
 mod tests {
+    use super::dns::*;
     use super::*;
+
+    use std::collections::HashMap;
 
     #[test]
     fn test_addition_mode() {
@@ -682,7 +763,6 @@ mod tests {
         // These are kind of lazy for the time being...
         match d.mutate(PermutationMode::Transposition) {
             Ok(permutations) => {
-                dbg!(&permutations);
                 assert!(permutations.len() > 0);
             }
             Err(e) => panic!(e),
@@ -704,7 +784,7 @@ mod tests {
 
     #[test]
     fn test_data_enrichment() {
-        let d = Domain::new("www.example.com").unwrap();
+        let d = Domain::new("smtp.org").unwrap();
         let mut resolved_domains = Arc::new(Mutex::new(HashMap::new()));
 
         match d.mutate(PermutationMode::All) {
