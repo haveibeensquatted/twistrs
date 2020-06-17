@@ -1,4 +1,4 @@
-# Twistr ![badge](https://img.shields.io/static/v1?label=status&message=alpha&color=yellow)
+# Twistr ![Status](https://img.shields.io/static/v1?label=Status&message=alpha&color=yellow) ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master)
 ---
 
 <img align="left" width="128" height="180" src="https://github.com/JuxhinDB/twistrs/blob/master/res/logo-x128.png">
