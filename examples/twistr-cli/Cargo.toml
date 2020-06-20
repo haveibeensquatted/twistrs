@@ -1,0 +1,9 @@
+[package]
+name = "twistr-cli"
+version = "0.1.0"
+authors = ["Juxhin Dyrmishi Brigjaj <juxhin@phishdeck.com>"]
+edition = "2018"
+
+[dependencies]
+twistrs = { path = "../../twistrs", version = "0.1.0" } 
+clap = "3.0.0-beta.1"

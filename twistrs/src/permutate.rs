@@ -13,7 +13,7 @@ pub struct Domain<'a> {
     domain: String,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PermutationMode {
     All,
     Addition,
@@ -27,7 +27,6 @@ pub enum PermutationMode {
     Subdomain,
     Transposition,
     VowelSwap,
-    // TODO(jdb): Add remaining modes
 }
 
 impl<'a> Domain<'a> {
@@ -36,7 +35,7 @@ impl<'a> Domain<'a> {
             Ok(parsed_domain) => {
                 let parts = parsed_domain
                     .root()
-                    .unwrap() // TODO(jdb): Figure out how to handle this unwrap
+                    .unwrap() // TODO(jdb): Figure out how to handle this unwrapoverride enum
                     .split('.')
                     .collect::<Vec<&str>>();
 
@@ -424,8 +423,6 @@ impl<'a> Domain<'a> {
         result
     }
 }
-
-// CLEANUP(jdb): Move this into its own module
 
 #[cfg(test)]
 mod tests {

@@ -73,5 +73,5 @@
 extern crate lazy_static;
 
 mod constants;
-mod enrich;
-mod permutate;
+pub mod enrich;
+pub mod permutate;

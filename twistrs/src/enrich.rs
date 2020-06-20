@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use lettre::{SmtpClient, Transport};
 use lettre_email::EmailBuilder;
 
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum EnrichmentMode {
     DnsLookup,
     MxCheck,
