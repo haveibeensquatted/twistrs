@@ -137,7 +137,7 @@ impl<'a> Domain<'a> {
         }
     }
 
-    pub fn mutate(&self, mode: PermutationMode) -> Result<Vec<String>, Error> {
+    pub fn permutate(&self, mode: PermutationMode) -> Result<Vec<String>, Error> {
         match mode {
             PermutationMode::Addition => Ok(self.addition()),
             PermutationMode::BitSquatting => Ok(self.bitsquatting()),
@@ -169,7 +169,7 @@ impl<'a> Domain<'a> {
 
                 modes
                     .into_par_iter()
-                    .for_each(|mode| match self.mutate(mode) {
+                    .for_each(|mode| match self.permutate(mode) {
                         Ok(mutations) => {
                             for mutation in mutations.iter() {
                                 permutations.lock().unwrap().push(String::from(mutation));
@@ -502,7 +502,7 @@ impl<'a> Domain<'a> {
 }
 
 // CLEANUP(jdb): Move this into its own module
-mod dns {
+mod enrich {
     use dns_lookup::lookup_host;
     use rayon::prelude::*;
     use std::collections::HashMap;
@@ -512,13 +512,14 @@ mod dns {
     use lettre::{SmtpClient, Transport};
     use lettre_email::EmailBuilder;
 
-    /// Container to store interesting FQDN metadata
-    /// on domains that we resolvable and have some
-    /// interesting properties.
-    #[derive(Debug)]
-    pub struct DomainMetadata {
-        ips: Box<Vec<IpAddr>>,
-        smtp: Option<SmtpMetadata>,
+    pub enum EnrichmentMode {
+        DnsLookup,
+        MxCheck,
+        SmtpBanner,
+        HttpBanner,
+        GeoIpLookup,
+        WhoIsLookup,
+        All,
     }
 
     // TODO(jdb): Does it make sense that this container is kept in the
@@ -527,6 +528,15 @@ mod dns {
     //            to add all resolved domains in a single container wit-
     //            hout having to worry about thread safety as much.
     type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
+
+    /// Container to store interesting FQDN metadata
+    /// on domains that we resolvable and have some
+    /// interesting properties.
+    #[derive(Debug)]
+    pub struct DomainMetadata {
+        ips: Box<Vec<IpAddr>>,
+        smtp: Option<SmtpMetadata>,
+    }
 
     #[derive(Debug)]
     struct ResolvedDomain {
@@ -551,7 +561,7 @@ mod dns {
         }
     }
 
-    fn smtp_transport_simple(addr: String) -> Option<SmtpMetadata> {
+    fn mx_check(addr: String) -> Option<SmtpMetadata> {
         let email = EmailBuilder::new()
             .to("twistr@example.org")
             .from("twistr@example.com")
@@ -580,70 +590,114 @@ mod dns {
         }
     }
 
-    pub fn enrich(domains: Vec<&str>, domain_store: &mut DomainStore) {
-        // First level of enrichment, resolves the domain and adds its
-        // list of resolved IPs.
-
+    // @TODO(jdb): Review this function signature a bit more in the future as
+    //             currently we are able to just pass a vec of domains to it
+    //             without necessarily having them come from the permutation
+    //             engine.
+    //
+    //             The reasoning behind this is that is a client wants to use
+    //             the data enrichment _without_ coupling it with the permut-
+    //             ation engine, they should be able to do so either way.
+    pub fn enrich<'a>(
+        mode: EnrichmentMode,
+        domains: Vec<&'a str>,
+        domain_store: &'a mut DomainStore,
+    ) -> Result<&'a DomainStore, &'static str> {
         let domains: Vec<String> = domains.into_iter().map(|x| x.to_owned()).collect();
 
-        let first_pass: Vec<String> = domains.iter().cloned().collect();
-        let resolved_domains = first_pass.into_par_iter().filter_map(dns_resolvable);
+        match mode {
+            EnrichmentMode::DnsLookup => {
+                let local_copy: Vec<String> = domains.iter().cloned().collect();
+                let resolved_domains = local_copy.into_par_iter().filter_map(dns_resolvable);
 
-        resolved_domains.for_each(|resolved| {
-            let mut _domain_store = domain_store.lock().unwrap();
-
-            match _domain_store.get_mut(&resolved.fqdn) {
-                Some(domain_metadata) => {
-                    domain_metadata.ips = Box::new(resolved.ips);
-                }
-                None => {
-                    let domain_metadata = DomainMetadata {
-                        ips: Box::new(resolved.ips),
-                        smtp: None,
-                    };
-                    _domain_store.insert(resolved.fqdn, domain_metadata);
-                }
+                // TODO(jdb): See if we can change this to try_for_each instead
+                //            so that the closure can return a result and so t-
+                //            hat we can use the shorthand `?` instead of tryi-
+                //            ng to unwrap.
+                resolved_domains.into_par_iter().for_each(|resolved| {
+                    let mut _domain_store = domain_store.lock().unwrap();
+                    match _domain_store.get_mut(&resolved.fqdn) {
+                        Some(domain_metadata) => {
+                            domain_metadata.ips = Box::new(resolved.ips);
+                        }
+                        None => {
+                            let domain_metadata = DomainMetadata {
+                                ips: Box::new(resolved.ips),
+                                smtp: None,
+                            };
+                            _domain_store.insert(resolved.fqdn, domain_metadata);
+                        }
+                    }
+                });
             }
-        });
+            EnrichmentMode::MxCheck => {
+                // @CLEANUP(jdb): This should iterate over the resolved domains only?
+                let local_copy: Vec<String> = domains.iter().cloned().collect();
+                let smtp_domains = local_copy.into_par_iter().filter_map(mx_check);
 
-        // @CLEANUP(jdb): This should iterate over the resolved domains only?
-        let second_pass: Vec<String> = domains.iter().cloned().collect();
-        let smtp_domains = second_pass
-            .into_par_iter()
-            .filter_map(smtp_transport_simple);
+                smtp_domains.into_par_iter().for_each(|smtp_server| {
+                    let mut _domain_store = domain_store.lock().unwrap();
 
-        smtp_domains.for_each(|smtp_server| {
-            let mut _domain_store = domain_store.lock().unwrap();
+                    match _domain_store.get_mut(&smtp_server.fqdn) {
+                        Some(domain_metadata) => {
+                            domain_metadata.smtp = Some(SmtpMetadata {
+                                fqdn: smtp_server.fqdn.to_string(),
+                                is_positive: smtp_server.is_positive,
+                                message: smtp_server.message,
+                            });
+                        }
+                        None => {
+                            let domain_metadata = DomainMetadata {
+                                ips: Box::new(vec![]),
+                                smtp: Some(SmtpMetadata {
+                                    fqdn: smtp_server.fqdn.to_string(),
+                                    is_positive: smtp_server.is_positive,
+                                    message: smtp_server.message,
+                                }),
+                            };
 
-            match _domain_store.get_mut(&smtp_server.fqdn) {
-                Some(domain_metadata) => {
-                    domain_metadata.smtp = Some(SmtpMetadata {
-                        fqdn: smtp_server.fqdn.to_string(),
-                        is_positive: smtp_server.is_positive,
-                        message: smtp_server.message,
-                    });
-                }
-                None => {
-                    let domain_metadata = DomainMetadata {
-                        ips: Box::new(vec![]),
-                        smtp: Some(SmtpMetadata {
-                            fqdn: smtp_server.fqdn.to_string(),
-                            is_positive: smtp_server.is_positive,
-                            message: smtp_server.message,
-                        }),
-                    };
-
-                    // @CLEANUP(jdb): Remove this clone...
-                    _domain_store.insert(smtp_server.fqdn.clone(), domain_metadata);
-                }
+                            // @CLEANUP(jdb): Remove this clone...
+                            _domain_store.insert(smtp_server.fqdn.clone(), domain_metadata);
+                        }
+                    }
+                });
             }
-        });
+            _ => return Err("enrichment mode not yet implemented"),
+        }
+
+        Ok(domain_store)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_dns_lookup() {
+            let mut domain_store = Arc::new(Mutex::new(HashMap::new()));
+            assert!(enrich(
+                EnrichmentMode::DnsLookup,
+                vec!["example.com"],
+                &mut domain_store,
+            )
+            .is_ok())
+        }
+
+        #[test]
+        fn test_mx_check() {
+            let mut domain_store = Arc::new(Mutex::new(HashMap::new()));
+            assert!(enrich(
+                EnrichmentMode::MxCheck,
+                vec!["example.com"],
+                &mut domain_store,
+            )
+            .is_ok())
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::dns::*;
     use super::*;
 
     use std::collections::HashMap;
@@ -652,7 +706,7 @@ mod tests {
     fn test_addition_mode() {
         let d = Domain::new("www.example.com").unwrap();
 
-        match d.mutate(PermutationMode::Addition) {
+        match d.permutate(PermutationMode::Addition) {
             Ok(permutations) => assert_eq!(permutations.len(), ASCII_LOWER.len()),
             Err(e) => panic!(e),
         }
@@ -663,7 +717,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::BitSquatting) {
+        match d.permutate(PermutationMode::BitSquatting) {
             Ok(permutations) => assert!(permutations.len() > 0),
             Err(e) => panic!(e),
         }
@@ -674,7 +728,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Homoglyph) {
+        match d.permutate(PermutationMode::Homoglyph) {
             Ok(permutations) => {
                 assert!(permutations.len() > 0);
             }
@@ -687,7 +741,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Hyphenation) {
+        match d.permutate(PermutationMode::Hyphenation) {
             Ok(permutations) => assert!(permutations.len() > 0),
             Err(e) => panic!(e),
         }
@@ -698,7 +752,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Insertion) {
+        match d.permutate(PermutationMode::Insertion) {
             Ok(permutations) => assert!(permutations.len() > 0),
             Err(e) => panic!(e),
         }
@@ -709,7 +763,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Omission) {
+        match d.permutate(PermutationMode::Omission) {
             Ok(permutations) => {
                 assert!(permutations.len() > 0);
             }
@@ -722,7 +776,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Repetition) {
+        match d.permutate(PermutationMode::Repetition) {
             Ok(permutations) => {
                 assert!(permutations.len() > 0);
             }
@@ -735,7 +789,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Replacement) {
+        match d.permutate(PermutationMode::Replacement) {
             Ok(permutations) => {
                 assert!(permutations.len() > 0);
             }
@@ -748,7 +802,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Subdomain) {
+        match d.permutate(PermutationMode::Subdomain) {
             Ok(permutations) => {
                 assert!(permutations.len() > 0);
             }
@@ -761,7 +815,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::Transposition) {
+        match d.permutate(PermutationMode::Transposition) {
             Ok(permutations) => {
                 assert!(permutations.len() > 0);
             }
@@ -774,27 +828,9 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
 
         // These are kind of lazy for the time being...
-        match d.mutate(PermutationMode::VowelSwap) {
+        match d.permutate(PermutationMode::VowelSwap) {
             Ok(permutations) => {
                 assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
-    }
-
-    #[test]
-    fn test_data_enrichment() {
-        let d = Domain::new("smtp.org").unwrap();
-        let mut resolved_domains = Arc::new(Mutex::new(HashMap::new()));
-
-        match d.mutate(PermutationMode::All) {
-            Ok(permutations) => {
-                enrich(
-                    permutations.iter().map(|s| &**s).collect::<Vec<&str>>(),
-                    &mut resolved_domains,
-                );
-
-                dbg!(&resolved_domains);
             }
             Err(e) => panic!(e),
         }
