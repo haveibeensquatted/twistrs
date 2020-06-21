@@ -8,9 +8,7 @@
 
 > Twistr is a Domain name permutation and enumeration library powered by Rust & Rayon. It aims to directly port the well-known [dnstwist](https://github.com/elceef/dnstwist) tool allowing for fast and flexible interfacing capabilities with the core libraries based on client's requirements.
 
-<br/><br/><br/><br/>
-
----
+<br/><br/><br/><br/><br/><br/>
 
 ## Demo
 
