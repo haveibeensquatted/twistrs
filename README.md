@@ -16,9 +16,7 @@
 
 The following is a rough demo of an [example implementation](examples/twistr-cli) of the library trying to enumerate `github.com`. Compared with the [dnstwist example](/res/dnstwist-github_com.gif), `twistrs` is able to enumerate and resolve more domains at a fraction of the time.
   
-<p align="center">
-  <img align="center" width="80%" height="80%"src="res/twistrs-cli-github_com.gif">
-</p>
+![twistrs-cli-example](res/twistrs-cli-github_com.gif)
 
 ## Usage
 
