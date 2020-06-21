@@ -51,33 +51,33 @@ match domain.permutate(PermutationMode::All) {
 
 #### Permutation Modes
 
-- Addition ✅
-- Bit Squatting ✅
-- Homoglyph ✅
-- Hyphenation ✅
-- Insertion ✅
-- Omission ✅
-- Repetition ✅
-- Replacement ✅
-- Sub-domain ✅
-- Transposition ✅
-- Vowel-swap ✅
+- [x] Addition
+- [x] Bit Squatting
+- [x] Homoglyph
+- [x] Hyphenation
+- [x] Insertion
+- [x] Omission
+- [x] Repetition
+- [x] Replacement
+- [x] Sub-domain
+- [x] Transposition
+- [x] Vowel-swap
 
 #### Domain Enrichment Features
 
-- DNS lookup ✅
-- MX parsing ✅
-- SMTP Banner ❌
-- HTTP Banner ❌
-- GeoIP Lookup (Cached) ❌
-- WhoIs Lookup ❌
+- [x] DNS lookup
+- [x] MX parsing
+- [ ] SMTP Banner
+- [ ] HTTP Banner
+- [ ] GeoIP Lookup (Cached)
+- [ ] WhoIs Lookup
 
 #### Miscellaneous
 
-- Benchmarking ❌
-- Concurrent ✅
-- Blog post ❌
-- Crates.io ❌
+- [ ] Benchmarking
+- [x] Concurrent
+- [ ] Blog post
+- [ ] Crates.io
 
 ---
 
