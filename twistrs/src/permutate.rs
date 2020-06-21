@@ -38,19 +38,19 @@ impl FromStr for PermutationMode {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_ascii_lowercase().as_str() {
             "all" => Ok(PermutationMode::All),
-            "Addition" => Ok(PermutationMode::Addition),
-            "BitSquatting" => Ok(PermutationMode::BitSquatting),
-            "Homoglyph" => Ok(PermutationMode::Homoglyph),
-            "Hyphenation" => Ok(PermutationMode::Hyphenation),
-            "Insertion" => Ok(PermutationMode::Insertion),
-            "Omission" => Ok(PermutationMode::Omission),
-            "Repetition" => Ok(PermutationMode::Repetition),
-            "Replacement" => Ok(PermutationMode::Replacement),
-            "Subdomain" => Ok(PermutationMode::Subdomain),
-            "Transposition" => Ok(PermutationMode::Transposition),
-            "VowelSwap" => Ok(PermutationMode::VowelSwap),
+            "addition" => Ok(PermutationMode::Addition),
+            "bitsquatting" => Ok(PermutationMode::BitSquatting),
+            "homoglyph" => Ok(PermutationMode::Homoglyph),
+            "hyphenation" => Ok(PermutationMode::Hyphenation),
+            "insertion" => Ok(PermutationMode::Insertion),
+            "omission" => Ok(PermutationMode::Omission),
+            "repetition" => Ok(PermutationMode::Repetition),
+            "replacement" => Ok(PermutationMode::Replacement),
+            "subdomain" => Ok(PermutationMode::Subdomain),
+            "transposition" => Ok(PermutationMode::Transposition),
+            "vowelswap" => Ok(PermutationMode::VowelSwap),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 format!("invalid permutation mode passed"),

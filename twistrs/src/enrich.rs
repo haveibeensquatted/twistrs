@@ -1,7 +1,9 @@
 use dns_lookup::lookup_host;
 use rayon::prelude::*;
 use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
 use std::net::IpAddr;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use lettre::{SmtpClient, Transport};
@@ -18,20 +20,40 @@ pub enum EnrichmentMode {
     All,
 }
 
+impl FromStr for EnrichmentMode {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "all" => Ok(EnrichmentMode::All),
+            "dnslookup" => Ok(EnrichmentMode::DnsLookup),
+            "mxcheck" => Ok(EnrichmentMode::MxCheck),
+            "smtpbanner" => Ok(EnrichmentMode::SmtpBanner),
+            "httpbanner" => Ok(EnrichmentMode::HttpBanner),
+            "geoiplookup" => Ok(EnrichmentMode::GeoIpLookup),
+            "whoislookup" => Ok(EnrichmentMode::WhoIsLookup),
+            _ => Err(Error::new(
+                ErrorKind::Other,
+                format!("invalid permutation mode passed"),
+            )),
+        }
+    }
+}
+
 // TODO(jdb): Does it make sense that this container is kept in the
 //            library? We need a way to store resolved domains in a
 //            thread-safe manner. In this case, we need rayon to be
 //            to add all resolved domains in a single container wit-
 //            hout having to worry about thread safety as much.
-type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
+pub type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
 
 /// Container to store interesting FQDN metadata
 /// on domains that we resolvable and have some
 /// interesting properties.
 #[derive(Debug)]
 pub struct DomainMetadata {
-    ips: Box<Vec<IpAddr>>,
-    smtp: Option<SmtpMetadata>,
+    pub ips: Box<Vec<IpAddr>>,
+    pub smtp: Option<SmtpMetadata>,
 }
 
 #[derive(Debug)]
@@ -41,7 +63,7 @@ struct ResolvedDomain {
 }
 
 #[derive(Debug)]
-struct SmtpMetadata {
+pub struct SmtpMetadata {
     // @CLEANUP(jdb): It's not ideal to keep having to duplicate the
     //                fqdn field on each struct here just to be able
     //                to pass it down to rayon...
@@ -59,10 +81,10 @@ fn dns_resolvable(addr: String) -> Option<ResolvedDomain> {
 
 fn mx_check(addr: String) -> Option<SmtpMetadata> {
     let email = EmailBuilder::new()
-        .to("twistr@example.org")
-        .from("twistr@example.com")
+        .to("twistrs@sample.tst")
+        .from("twistrs@sample.tst")
         .subject("")
-        .text("And that's how the cookie crumbles")
+        .text("And that's how the cookie crumbles\n")
         .build()
         .unwrap();
 
@@ -71,6 +93,8 @@ fn mx_check(addr: String) -> Option<SmtpMetadata> {
 
     // Send the email
     let result = mailer.send(email.into());
+
+    dbg!(&result);
 
     match result {
         Ok(response) => Some(SmtpMetadata {
@@ -96,7 +120,7 @@ fn mx_check(addr: String) -> Option<SmtpMetadata> {
 //             ation engine, they should be able to do so either way.
 pub fn enrich<'a>(
     mode: EnrichmentMode,
-    domains: Vec<&'a str>,
+    domains: Vec<String>,
     domain_store: &'a mut DomainStore,
 ) -> Result<&'a DomainStore, &'static str> {
     let domains: Vec<String> = domains.into_iter().map(|x| x.to_owned()).collect();
