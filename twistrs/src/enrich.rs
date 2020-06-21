@@ -197,7 +197,7 @@ mod tests {
         let mut domain_store = Arc::new(Mutex::new(HashMap::new()));
         assert!(enrich(
             EnrichmentMode::DnsLookup,
-            vec!["example.com"],
+            vec!["example.com".to_string()],
             &mut domain_store,
         )
         .is_ok())
@@ -208,7 +208,7 @@ mod tests {
         let mut domain_store = Arc::new(Mutex::new(HashMap::new()));
         assert!(enrich(
             EnrichmentMode::MxCheck,
-            vec!["example.com"],
+            vec!["example.com".to_string()],
             &mut domain_store,
         )
         .is_ok())
