@@ -2,6 +2,11 @@ use crate::constants::{ASCII_LOWER, DOMAIN_LIST, HOMOGLYPHS, KEYBOARD_LAYOUTS, V
 use rayon::prelude::*;
 
 use std::collections::HashSet;
+use std::str::FromStr;
+
+// @CLEANUP(jdb): This isn't the right module. std::error requires dyn
+//                and known size at compile-time which we don't know
+//                how to achieve just yet.
 use std::io::{Error, ErrorKind};
 use std::sync::{Arc, Mutex};
 
@@ -29,8 +34,33 @@ pub enum PermutationMode {
     VowelSwap,
 }
 
+impl FromStr for PermutationMode {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "all" => Ok(PermutationMode::All),
+            "Addition" => Ok(PermutationMode::Addition),
+            "BitSquatting" => Ok(PermutationMode::BitSquatting),
+            "Homoglyph" => Ok(PermutationMode::Homoglyph),
+            "Hyphenation" => Ok(PermutationMode::Hyphenation),
+            "Insertion" => Ok(PermutationMode::Insertion),
+            "Omission" => Ok(PermutationMode::Omission),
+            "Repetition" => Ok(PermutationMode::Repetition),
+            "Replacement" => Ok(PermutationMode::Replacement),
+            "Subdomain" => Ok(PermutationMode::Subdomain),
+            "Transposition" => Ok(PermutationMode::Transposition),
+            "VowelSwap" => Ok(PermutationMode::VowelSwap),
+            _ => Err(Error::new(
+                ErrorKind::Other,
+                format!("invalid permutation mode passed"),
+            )),
+        }
+    }
+}
+
 impl<'a> Domain<'a> {
-    pub fn new(fqdn: &'static str) -> Result<Domain<'a>, Error> {
+    pub fn new(fqdn: &'a str) -> Result<Domain<'a>, Error> {
         match DOMAIN_LIST.parse_domain(fqdn) {
             Ok(parsed_domain) => {
                 let parts = parsed_domain

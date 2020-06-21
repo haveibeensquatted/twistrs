@@ -1,45 +1,48 @@
-use clap::Clap;
+use clap::{App, Arg};
 
-use twistrs::enrich::*;
-use twistrs::permutate::PermutationMode;
-
-//#[derive(Clap, Debug, PartialEq)]
-//enum ArgPermuationMode {
-//    PermutationMode::All,
-//    PermutationMode::Addition,
-//    PermutationMode::BitSquatting,
-//    PermutationMode::Homoglyph,
-//    PermutationMode::Insertion,
-//    PermutationMode::Omission,
-//    PermutationMode::Repetition,
-//    PermutationMode::Replacement,
-//    PermutationMode::Subdomain,
-//    PermutationMode::Transposition,
-//    PermutationMode::VowelSwap,
-//}
-//
-//#[derive(Clap, Debug, PartialEq)]
-//enum ArgEnrichmentMode {
-//    EnrichmentMode::DnsLookup,
-//    EnrichmentMode::MxCheck,
-//}
-
-//#[derive(Clap, Debug, PartialEq)]
-//type ArgPermutationMode = PermutationMode;
-//
-//#[derive(Clap, PartialEq, Debug)]
-//#[clap(name = "twistrs-cli")]
-//struct Opts {
-//    #[clap(short, long)]
-//    registered_domains: bool,
-//
-//    #[clap(arg_enum)]
-//    permutation_mode: PermutationMode,
-//
-//    #[clap(arg_enum)]
-//    enrichment_mode: EnrichmentMode,
-//}
+use twistrs::permutate::{Domain, PermutationMode};
 
 fn main() {
-    println!("Hello, world!");
+    let matches = App::new("twistrs-cli")
+        .version("0.1.0")
+        .author("Juxhin D. Brigjaj <juxhin@phishdeck.com>")
+        .arg(
+            Arg::with_name("permutation_mode")
+                .long("permutation_mode")
+                .required(false)
+                .multiple(false)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("enrichment_mode")
+                .long("enrichment_mode")
+                .required(false)
+                .multiple(false)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("domain")
+                .about("domain to permutate and enrich")
+                .required(true),
+        )
+        .get_matches();
+
+    let domain = Domain::new(&matches.value_of("domain").unwrap()).unwrap();
+
+    if matches.is_present("permutation_mode") {
+        let permutation_mode = matches
+            .value_of("permutation_mode")
+            .unwrap()
+            .parse::<PermutationMode>()
+            .unwrap();
+
+        match domain.permutate(permutation_mode) {
+            Ok(permutations) => {
+                for permutation in permutations {
+                    println!("Generated permutation: {}", permutation);
+                }
+            }
+            Err(e) => panic!(e),
+        }
+    }
 }

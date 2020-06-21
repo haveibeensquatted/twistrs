@@ -12,7 +12,7 @@ pub static VOWELS: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
 
 lazy_static! {
     pub static ref DOMAIN_LIST: List =
-        List::from_path("src/database/effective_tld_names.dat").unwrap();
+        List::from_path("./src/database/effective_tld_names.dat").unwrap();
 
     // This can only be called once, we use lazy_static to initialize
     // it once on startup.
