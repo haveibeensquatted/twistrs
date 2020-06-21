@@ -8,23 +8,6 @@ pub static ASCII_LOWER: [char; 26] = [
     't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-pub static VOWELS: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
-
-lazy_static! {
-    pub static ref DOMAIN_LIST: List =
-        List::from_path("./src/database/effective_tld_names.dat").unwrap();
-
-    // This can only be called once, we use lazy_static to initialize
-    // it once on startup.
-    //
-    // @CLEANUP(jdb): Do we need to have a binding here? Can't we just
-    //                initialize it?
-    pub static ref THREAD_POOL: () = ThreadPoolBuilder::new()
-        .num_threads(100)
-        .build_global()
-        .unwrap();
-}
-
 static QWERTY_KEYBOARD_LAYOUT: phf::Map<char, &'static str> = phf_map! {
     '1' => "2q",
     '2' => "3wq1",
@@ -63,6 +46,7 @@ static QWERTY_KEYBOARD_LAYOUT: phf::Map<char, &'static str> = phf_map! {
     'n' => "bhjm",
     'm' => "njk"
 };
+
 static QWERTZ_KEYBOARD_LAYOUT: phf::Map<char, &'static str> = phf_map! {
     '1'=> "2q",
     '2'=> "3wq1",
@@ -101,6 +85,7 @@ static QWERTZ_KEYBOARD_LAYOUT: phf::Map<char, &'static str> = phf_map! {
     'n'=> "bhjm",
     'm'=> "njk"
 };
+
 static AZERTY_KEYBOARD_LAYOUT: phf::Map<char, &'static str> = phf_map! {
     '1'=> "2a",
     '2'=> "3za1",
@@ -167,8 +152,34 @@ pub static HOMOGLYPHS: phf::Map<char, &'static str> = phf_map! {
     'y' => "ʏýÿŷƴȳɏỿẏỵ",
     'z' => "ʐżźᴢƶẓẕⱬ"
 };
+pub static VOWELS: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
 
 lazy_static! {
+
+    // @CLEANUP(jdb): Right now this is going to always incur a runtime
+    //                overhead since we need to always fetch the list
+    //                over HTTP. In the future, this should be kept lo-
+    //                cally and call List::from_str instead.
+    //
+    //                At first we used List::from_path and pointed to a
+    //                local .dat file containing the TLDs, however giv-
+    //                en that this is a library, this is not the right
+    //                way to go about it.
+    //
+    //  Ref: https://docs.rs/publicsuffix/1.5.4/publicsuffix/struct.List.html
+    pub static ref EFFECTIVE_TLDS: List =
+        List::fetch().unwrap();
+
+    // This can only be called once, we use lazy_static to initialize
+    // it once on startup.
+    //
+    // @CLEANUP(jdb): Do we need to have a binding here? Can't we just
+    //                initialize it?
+    pub static ref THREAD_POOL: () = ThreadPoolBuilder::new()
+        .num_threads(100)
+        .build_global()
+        .unwrap();
+
     pub static ref KEYBOARD_LAYOUTS: Vec<&'static phf::Map<char, &'static str>> = vec![
         &QWERTY_KEYBOARD_LAYOUT,
         &QWERTZ_KEYBOARD_LAYOUT,

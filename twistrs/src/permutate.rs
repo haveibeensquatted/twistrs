@@ -1,4 +1,4 @@
-use crate::constants::{ASCII_LOWER, DOMAIN_LIST, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
+use crate::constants::{ASCII_LOWER, EFFECTIVE_TLDS, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
 use rayon::prelude::*;
 
 use std::collections::HashSet;
@@ -61,7 +61,7 @@ impl FromStr for PermutationMode {
 
 impl<'a> Domain<'a> {
     pub fn new(fqdn: &'a str) -> Result<Domain<'a>, Error> {
-        match DOMAIN_LIST.parse_domain(fqdn) {
+        match EFFECTIVE_TLDS.parse_domain(fqdn) {
             Ok(parsed_domain) => {
                 let parts = parsed_domain
                     .root()
