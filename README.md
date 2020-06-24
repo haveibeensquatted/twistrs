@@ -8,17 +8,13 @@
 
 > Twistr is a Domain name permutation and enumeration library powered by Rust & Rayon. It aims to directly port the well-known [dnstwist](https://github.com/elceef/dnstwist) tool allowing for fast and flexible interfacing capabilities with the core libraries based on client's requirements.
 
-<br/><br/><br/><br/>
-
----
+<br/><br/><br/><br/><br/><br/>
 
 ## Demo
 
 The following is a rough demo of an [example implementation](examples/twistr-cli) of the library trying to enumerate `github.com`. Compared with the [dnstwist example](/res/dnstwist-github_com.gif), `twistrs` is able to enumerate and resolve more domains at a fraction of the time.
   
-<p align="center">
-  <img align="center" width="80%" height="80%"src="res/twistrs-cli-github_com.gif">
-</p>
+![twistrs-cli-example](res/twistrs-cli-github_com.gif)
 
 ## Usage
 
@@ -55,33 +51,33 @@ match domain.permutate(PermutationMode::All) {
 
 #### Permutation Modes
 
-- Addition ✅
-- Bit Squatting ✅
-- Homoglyph ✅
-- Hyphenation ✅
-- Insertion ✅
-- Omission ✅
-- Repetition ✅
-- Replacement ✅
-- Sub-domain ✅
-- Transposition ✅
-- Vowel-swap ✅
+- [x] Addition
+- [x] Bit Squatting
+- [x] Homoglyph
+- [x] Hyphenation
+- [x] Insertion
+- [x] Omission
+- [x] Repetition
+- [x] Replacement
+- [x] Sub-domain
+- [x] Transposition
+- [x] Vowel-swap
 
 #### Domain Enrichment Features
 
-- DNS lookup ✅
-- MX parsing ✅
-- SMTP Banner ❌
-- HTTP Banner ❌
-- GeoIP Lookup (Cached) ❌
-- WhoIs Lookup ❌
+- [x] DNS lookup
+- [x] MX parsing
+- [ ] SMTP Banner
+- [ ] HTTP Banner
+- [ ] GeoIP Lookup (Cached)
+- [ ] WhoIs Lookup
 
 #### Miscellaneous
 
-- Benchmarking ❌
-- Concurrent ✅
-- Blog post ❌
-- Crates.io ❌
+- [ ] Benchmarking
+- [x] Concurrent
+- [ ] Blog post
+- [ ] Crates.io
 
 ---
 
@@ -92,5 +88,5 @@ This project is licensed under the [MIT license](LICENSE).
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in Tokio by you, shall be licensed as MIT, without any additional
+for inclusion in Twistrs by you, shall be licensed as MIT, without any additional
 terms or conditions.
