@@ -1,4 +1,5 @@
 use clap::{App, Arg};
+use colored::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -47,15 +48,10 @@ fn main() {
             }
             Err(e) => panic!(e),
         }
-
-        println!(
-            "{}",
-            format!(
-                "Generated {} domains...",
-                &generated_domains.len().to_string()
-            )
-        );
     }
+
+    let domain_generation_count = &generated_domains.len();
+    let mut domain_store: DomainStore = Arc::new(Mutex::new(HashMap::new()));
 
     if matches.is_present("enrichment_mode") {
         let enrichment_mode = matches
@@ -64,24 +60,39 @@ fn main() {
             .parse::<EnrichmentMode>()
             .unwrap();
 
-        println!("Enriching all domains...");
         println!("Applying enrichment mode: {:?}", enrichment_mode);
-
-        let mut domain_store: DomainStore = Arc::new(Mutex::new(HashMap::new()));
 
         enrich(enrichment_mode, generated_domains, &mut domain_store).unwrap();
 
         for (domain, domain_metadata) in domain_store.lock().unwrap().iter() {
-            println!("Enriched Domain: {}", domain);
-            print!("\tIPs Found: ");
+            println!("{}: {}", "Enriched Domain".bold(), domain.green());
+            print!("\t{}", "IPs Found:".bold());
 
             for ip in domain_metadata.ips.iter() {
                 print!("\n\t  - {}", ip);
             }
 
             print!("\n");
-            println!("\tSMTP Listener? (MX Check): {:?}", domain_metadata.smtp);
+            println!(
+                "\t{}: {:?}",
+                "SMTP Listener? (MX Check)", domain_metadata.smtp
+            );
             println!("\n");
         }
     }
+
+    println!(
+        "{}",
+        format!(
+            "{}: {}",
+            "Total numbers of domains generated".bold(),
+            domain_generation_count.to_string().green()
+        )
+    );
+
+    println!(
+        "{}: {}",
+        "Total number of domains resolved".bold(),
+        domain_store.lock().unwrap().len().to_string().green()
+    );
 }
