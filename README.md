@@ -10,12 +10,6 @@
 
 <br/><br/><br/><br/><br/><br/>
 
-## Demo
-
-The following is a rough demo of an [example implementation](examples/twistr-cli) of the library trying to enumerate `github.com`. Compared with the [dnstwist example](/res/dnstwist-github_com.gif), `twistrs` is able to enumerate and resolve more domains at a fraction of the time.
-  
-![twistrs-cli-example](res/twistrs-cli-github_com.gif)
-
 ## Usage
 
 The core library is composed of the domain permutation module and the domain enrichment module that can be used individually or chained together.
