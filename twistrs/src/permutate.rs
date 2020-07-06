@@ -1,14 +1,8 @@
 use crate::constants::{ASCII_LOWER, EFFECTIVE_TLDS, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
-use rayon::prelude::*;
 
+use std::fmt;
 use std::collections::HashSet;
-use std::str::FromStr;
 
-// @CLEANUP(jdb): This isn't the right module. std::error requires dyn
-//                and known size at compile-time which we don't know
-//                how to achieve just yet.
-use std::io::{Error, ErrorKind};
-use std::sync::{Arc, Mutex};
 
 #[derive(Default, Debug)]
 pub struct Domain<'a> {
@@ -18,49 +12,21 @@ pub struct Domain<'a> {
     domain: String,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum PermutationMode {
-    All,
-    Addition,
-    BitSquatting,
-    Homoglyph,
-    Hyphenation,
-    Insertion,
-    Omission,
-    Repetition,
-    Replacement,
-    Subdomain,
-    Transposition,
-    VowelSwap,
-}
 
-impl FromStr for PermutationMode {
-    type Err = Error;
+type Result<T> = std::result::Result<T, PermutationError>;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "all" => Ok(PermutationMode::All),
-            "addition" => Ok(PermutationMode::Addition),
-            "bitsquatting" => Ok(PermutationMode::BitSquatting),
-            "homoglyph" => Ok(PermutationMode::Homoglyph),
-            "hyphenation" => Ok(PermutationMode::Hyphenation),
-            "insertion" => Ok(PermutationMode::Insertion),
-            "omission" => Ok(PermutationMode::Omission),
-            "repetition" => Ok(PermutationMode::Repetition),
-            "replacement" => Ok(PermutationMode::Replacement),
-            "subdomain" => Ok(PermutationMode::Subdomain),
-            "transposition" => Ok(PermutationMode::Transposition),
-            "vowelswap" => Ok(PermutationMode::VowelSwap),
-            _ => Err(Error::new(
-                ErrorKind::Other,
-                format!("invalid permutation mode passed"),
-            )),
-        }
+#[derive(Copy, Clone, Debug)]
+pub struct PermutationError;
+
+impl fmt::Display for PermutationError {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "")
     }
 }
 
 impl<'a> Domain<'a> {
-    pub fn new(fqdn: &'a str) -> Result<Domain<'a>, Error> {
+    pub fn new(fqdn: &'a str) -> Result<Domain<'a>> {
         match EFFECTIVE_TLDS.parse_domain(fqdn) {
             Ok(parsed_domain) => {
                 let parts = parsed_domain
@@ -72,10 +38,7 @@ impl<'a> Domain<'a> {
                 let len = parts.len();
 
                 if len < 2 {
-                    return Err(Error::new(
-                        ErrorKind::Other,
-                        format!("fqdn format is invalid: {:?}", fqdn),
-                    ));
+                    return Err(PermutationError);
                 }
 
                 let tld = format!("{}", String::from(parts[len - 1]));
@@ -86,76 +49,56 @@ impl<'a> Domain<'a> {
 
             // TODO(jdb): See how we can pass the lazy_static error here
             //            since passing Err(e) is not thread-safe
-            Err(_) => Err(Error::new(ErrorKind::Other, "")),
+            Err(_) => Err(PermutationError),
         }
     }
 
-    pub fn permutate(&self, mode: PermutationMode) -> Result<Vec<String>, Error> {
-        match mode {
-            PermutationMode::Addition => Ok(self.addition()),
-            PermutationMode::BitSquatting => Ok(self.bitsquatting()),
-            PermutationMode::Homoglyph => Ok(self.homoglyph()),
-            PermutationMode::Hyphenation => Ok(self.hyphentation()),
-            PermutationMode::Insertion => Ok(self.insertion()),
-            PermutationMode::Omission => Ok(self.omission()),
-            PermutationMode::Repetition => Ok(self.repetition()),
-            PermutationMode::Replacement => Ok(self.replacement()),
-            PermutationMode::Subdomain => Ok(self.subdomain()),
-            PermutationMode::Transposition => Ok(self.transposition()),
-            PermutationMode::VowelSwap => Ok(self.vowel_swap()),
-            PermutationMode::All => {
-                let modes = vec![
-                    PermutationMode::Addition,
-                    PermutationMode::BitSquatting,
-                    PermutationMode::Homoglyph,
-                    PermutationMode::Hyphenation,
-                    PermutationMode::Insertion,
-                    PermutationMode::Omission,
-                    PermutationMode::Repetition,
-                    PermutationMode::Replacement,
-                    PermutationMode::Subdomain,
-                    PermutationMode::Transposition,
-                    PermutationMode::VowelSwap,
-                ];
-
-                let permutations = Arc::new(Mutex::new(vec![]));
-
-                modes
-                    .into_par_iter()
-                    .for_each(|mode| match self.permutate(mode) {
-                        Ok(mutations) => {
-                            for mutation in mutations.iter() {
-                                permutations.lock().unwrap().push(String::from(mutation));
-                            }
-                        }
-                        Err(e) => panic!(e),
-                    });
-
-                // TODO(jdb): Not sure if this even makes sense...
-                // CLEANUP(jdb): See how we can just pass in the original
-                //               set of permutations without having to do
-                //               this entire dance.
-                let mut v = vec![];
-
-                for p in permutations.lock().unwrap().iter() {
-                    v.push(String::from(p));
-                }
-
-                Ok(v)
-            }
-        }
+    pub fn all(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+        let permutations = self.addition()
+            .and_then(|i| Ok(
+                i.chain(self.bitsquatting()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.homoglyph()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.hyphentation()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.insertion()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.omission()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.repetition()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.replacement()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.subdomain()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.transposition()?)
+            ))
+            .and_then(|i| Ok(
+                i.chain(self.vowel_swap()?)
+            ))?;
+    
+        Ok(Box::new(permutations))
     }
 
-    fn addition(&self) -> Vec<String> {
+    pub fn addition(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
         for c in ASCII_LOWER.iter() {
             result.push(format!("{}{}.{}", self.domain, c.to_string(), self.tld));
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn bitsquatting(&self) -> Vec<String> {
+    pub fn bitsquatting(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         // Following implementation takes inspiration from the following content:
         //  - https://github.com/artemdinaburg/bitsquat-script/blob/master/bitsquat.py
         //  - http://dinaburg.org/bitsquatting.html
@@ -196,10 +139,10 @@ impl<'a> Domain<'a> {
             }
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn homoglyph(&self) -> Vec<String> {
+    pub fn homoglyph(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         // @CLEANUP(jdb): Tidy this entire mess up
         let mut result_first_pass: HashSet<String> = HashSet::new();
         let mut result_second_pass: HashSet<String> = HashSet::new();
@@ -271,12 +214,13 @@ impl<'a> Domain<'a> {
             }
         }
 
-        (&result_first_pass | &result_second_pass)
+        Ok(Box::new((&result_first_pass | &result_second_pass)
             .into_iter()
-            .collect()
+            .collect::<Vec<String>>()
+            .into_iter()))
     }
 
-    fn hyphentation(&self) -> Vec<String> {
+    pub fn hyphentation(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
@@ -291,10 +235,10 @@ impl<'a> Domain<'a> {
             result.push(permutation);
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn insertion(&self) -> Vec<String> {
+    pub fn insertion(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
@@ -321,10 +265,10 @@ impl<'a> Domain<'a> {
             }
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn omission(&self) -> Vec<String> {
+    pub fn omission(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, _) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -337,10 +281,10 @@ impl<'a> Domain<'a> {
             result.push(format!("{}{}", &self.fqdn[..i], &self.fqdn[i + 1..]));
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn repetition(&self) -> Vec<String> {
+    pub fn repetition(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -355,10 +299,10 @@ impl<'a> Domain<'a> {
             }
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn replacement(&self) -> Vec<String> {
+    pub fn replacement(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -387,10 +331,10 @@ impl<'a> Domain<'a> {
             }
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn subdomain(&self) -> Vec<String> {
+    pub fn subdomain(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.chars().collect::<Vec<char>>();
 
@@ -407,10 +351,10 @@ impl<'a> Domain<'a> {
             }
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn transposition(&self) -> Vec<String> {
+    pub fn transposition(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.chars().collect::<Vec<char>>();
 
@@ -431,10 +375,10 @@ impl<'a> Domain<'a> {
             }
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 
-    fn vowel_swap(&self) -> Vec<String> {
+    pub fn vowel_swap(&self) -> Result<Box<dyn Iterator<Item=String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -450,7 +394,7 @@ impl<'a> Domain<'a> {
             }
         }
 
-        result
+        Ok(Box::new(result.into_iter()))
     }
 }
 
@@ -458,139 +402,111 @@ impl<'a> Domain<'a> {
 mod tests {
     use super::*;
 
-    use std::collections::HashMap;
-
     #[test]
     fn test_addition_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.addition();
 
-        match d.permutate(PermutationMode::Addition) {
-            Ok(permutations) => assert_eq!(permutations.len(), ASCII_LOWER.len()),
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert_eq!(permutations.unwrap().collect::<Vec<String>>().len(), ASCII_LOWER.len());
     }
 
     #[test]
     fn test_bitsquatting_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.bitsquatting();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::BitSquatting) {
-            Ok(permutations) => assert!(permutations.len() > 0),
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_homoglyph_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.homoglyph();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Homoglyph) {
-            Ok(permutations) => {
-                assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_hyphenation_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.hyphentation();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Hyphenation) {
-            Ok(permutations) => assert!(permutations.len() > 0),
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_insertion_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.insertion();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Insertion) {
-            Ok(permutations) => assert!(permutations.len() > 0),
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_omission_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.omission();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Omission) {
-            Ok(permutations) => {
-                assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_repetition_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.repetition();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Repetition) {
-            Ok(permutations) => {
-                assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_replacement_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.replacement();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Replacement) {
-            Ok(permutations) => {
-                assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_subdomain_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.subdomain();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Subdomain) {
-            Ok(permutations) => {
-                assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_transposition_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.transposition();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::Transposition) {
-            Ok(permutations) => {
-                assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 
     #[test]
     fn test_vowel_swap_mode() {
         let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.vowel_swap();
 
-        // These are kind of lazy for the time being...
-        match d.permutate(PermutationMode::VowelSwap) {
-            Ok(permutations) => {
-                assert!(permutations.len() > 0);
-            }
-            Err(e) => panic!(e),
-        }
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
+    }
+
+    #[test]
+    fn test_all_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.all();
+
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
     }
 }

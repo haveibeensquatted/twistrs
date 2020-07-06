@@ -1,5 +1,4 @@
 [workspace]
 members = [
     "twistrs",
-    "examples/twistr-cli",
 ]
