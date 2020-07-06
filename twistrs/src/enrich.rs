@@ -1,216 +1,132 @@
 use dns_lookup::lookup_host;
-use rayon::prelude::*;
-use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
 use std::net::IpAddr;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::fmt;
 
 use lettre::{SmtpClient, Transport};
 use lettre_email::EmailBuilder;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum EnrichmentMode {
-    DnsLookup,
-    MxCheck,
-    SmtpBanner,
-    HttpBanner,
-    GeoIpLookup,
-    WhoIsLookup,
-    All,
-}
 
-impl FromStr for EnrichmentMode {
-    type Err = Error;
+type Result<T> = std::result::Result<T, EnrichmentError>;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "all" => Ok(EnrichmentMode::All),
-            "dnslookup" => Ok(EnrichmentMode::DnsLookup),
-            "mxcheck" => Ok(EnrichmentMode::MxCheck),
-            "smtpbanner" => Ok(EnrichmentMode::SmtpBanner),
-            "httpbanner" => Ok(EnrichmentMode::HttpBanner),
-            "geoiplookup" => Ok(EnrichmentMode::GeoIpLookup),
-            "whoislookup" => Ok(EnrichmentMode::WhoIsLookup),
-            _ => Err(Error::new(
-                ErrorKind::Other,
-                format!("invalid permutation mode passed"),
-            )),
-        }
+#[derive(Copy, Clone, Debug)]
+pub struct EnrichmentError;
+
+impl fmt::Display for EnrichmentError {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "")
     }
 }
-
-// TODO(jdb): Does it make sense that this container is kept in the
-//            library? We need a way to store resolved domains in a
-//            thread-safe manner. In this case, we need rayon to be
-//            to add all resolved domains in a single container wit-
-//            hout having to worry about thread safety as much.
-pub type DomainStore = Arc<Mutex<HashMap<String, DomainMetadata>>>;
 
 /// Container to store interesting FQDN metadata
 /// on domains that we resolvable and have some
 /// interesting properties.
 #[derive(Debug)]
-pub struct DomainMetadata {
-    pub ips: Box<Vec<IpAddr>>,
+pub struct DomainMetadata<'a> {
+    pub fqdn: &'a str,
+    pub ips: Option<Vec<IpAddr>>,
     pub smtp: Option<SmtpMetadata>,
 }
 
 #[derive(Debug)]
 struct ResolvedDomain {
-    fqdn: String,
     ips: Vec<IpAddr>,
 }
 
 #[derive(Debug)]
 pub struct SmtpMetadata {
-    // @CLEANUP(jdb): It's not ideal to keep having to duplicate the
-    //                fqdn field on each struct here just to be able
-    //                to pass it down to rayon...
-    fqdn: String,
     is_positive: bool,
     message: String,
 }
 
-fn dns_resolvable(addr: String) -> Option<ResolvedDomain> {
-    match lookup_host(&addr) {
-        Ok(ips) => Some(ResolvedDomain { fqdn: addr, ips }),
-        Err(_) => None,
-    }
-}
-
-fn mx_check(addr: String) -> Option<SmtpMetadata> {
-    let email = EmailBuilder::new()
-        .to("twistrs@sample.tst")
-        .from("twistrs@sample.tst")
-        .subject("")
-        .text("And that's how the cookie crumbles\n")
-        .build()
-        .unwrap();
-
-    // Open a local connection on port 25
-    let mut mailer = SmtpClient::new_unencrypted_localhost().unwrap().transport();
-
-    // Send the email
-    let result = mailer.send(email.into());
-
-    dbg!(&result);
-
-    match result {
-        Ok(response) => Some(SmtpMetadata {
-            fqdn: addr,
-            is_positive: response.is_positive(),
-            message: response
-                .message
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<String>(),
-        }),
-        Err(_) => None,
-    }
-}
-
-// @TODO(jdb): Review this function signature a bit more in the future as
-//             currently we are able to just pass a vec of domains to it
-//             without necessarily having them come from the permutation
-//             engine.
-//
-//             The reasoning behind this is that is a client wants to use
-//             the data enrichment _without_ coupling it with the permut-
-//             ation engine, they should be able to do so either way.
-pub fn enrich<'a>(
-    mode: EnrichmentMode,
-    domains: Vec<String>,
-    domain_store: &'a mut DomainStore,
-) -> Result<&'a DomainStore, &'static str> {
-    let domains: Vec<String> = domains.into_iter().map(|x| x.to_owned()).collect();
-
-    match mode {
-        EnrichmentMode::DnsLookup => {
-            let local_copy: Vec<String> = domains.iter().cloned().collect();
-            let resolved_domains = local_copy.into_par_iter().filter_map(dns_resolvable);
-
-            // TODO(jdb): See if we can change this to try_for_each instead
-            //            so that the closure can return a result and so t-
-            //            hat we can use the shorthand `?` instead of tryi-
-            //            ng to unwrap.
-            resolved_domains.into_par_iter().for_each(|resolved| {
-                let mut _domain_store = domain_store.lock().unwrap();
-                match _domain_store.get_mut(&resolved.fqdn) {
-                    Some(domain_metadata) => {
-                        domain_metadata.ips = Box::new(resolved.ips);
-                    }
-                    None => {
-                        let domain_metadata = DomainMetadata {
-                            ips: Box::new(resolved.ips),
-                            smtp: None,
-                        };
-                        _domain_store.insert(resolved.fqdn, domain_metadata);
-                    }
-                }
-            });
+impl<'a> DomainMetadata<'a> {
+    pub fn new(fqdn: &'a str) -> DomainMetadata<'a> {
+        DomainMetadata {
+            fqdn: fqdn,
+            ips: None,
+            smtp: None,
         }
-        EnrichmentMode::MxCheck => {
-            // @CLEANUP(jdb): This should iterate over the resolved domains only?
-            let local_copy: Vec<String> = domains.iter().cloned().collect();
-            let smtp_domains = local_copy.into_par_iter().filter_map(mx_check);
-
-            smtp_domains.into_par_iter().for_each(|smtp_server| {
-                let mut _domain_store = domain_store.lock().unwrap();
-
-                match _domain_store.get_mut(&smtp_server.fqdn) {
-                    Some(domain_metadata) => {
-                        domain_metadata.smtp = Some(SmtpMetadata {
-                            fqdn: smtp_server.fqdn.to_string(),
-                            is_positive: smtp_server.is_positive,
-                            message: smtp_server.message,
-                        });
-                    }
-                    None => {
-                        let domain_metadata = DomainMetadata {
-                            ips: Box::new(vec![]),
-                            smtp: Some(SmtpMetadata {
-                                fqdn: smtp_server.fqdn.to_string(),
-                                is_positive: smtp_server.is_positive,
-                                message: smtp_server.message,
-                            }),
-                        };
-
-                        // @CLEANUP(jdb): Remove this clone...
-                        _domain_store.insert(smtp_server.fqdn.clone(), domain_metadata);
-                    }
-                }
-            });
-        }
-        _ => return Err("enrichment mode not yet implemented"),
     }
 
-    Ok(domain_store)
+    pub fn dns_resolvable(&mut self) -> Result<&DomainMetadata> {
+        match lookup_host(&self.fqdn) {
+            Ok(ips) => {
+                self.ips =  Some(ips);
+                Ok(self)
+            },
+            Err(_) => Err(EnrichmentError),
+        }
+    }
+    
+    pub fn mx_check(&mut self) -> Result<&DomainMetadata> {
+        let email = EmailBuilder::new()
+            .to("twistrs@sample.tst")
+            .from("twistrs@sample.tst")
+            .subject("")
+            .text("And that's how the cookie crumbles\n")
+            .build()
+            .unwrap();
+    
+        // Open a local connection on port 25
+        let mut mailer = SmtpClient::new_unencrypted_localhost().unwrap().transport();
+    
+        // Send the email
+        let result = mailer.send(email.into());
+    
+        match result {
+            Ok(response) => {
+                self.smtp = Some(SmtpMetadata {
+                    is_positive: response.is_positive(),
+                    message: response
+                        .message
+                        .into_iter()
+                        .map(|s| s.to_string())
+                        .collect::<String>(),
+                });
+
+                Ok(self)
+            },
+
+            // @CLEANUP(JDB): Currently for most scenarios, the following call with return
+            //                an `std::io::ErrorKind::ConnfectionRefused` which is normal.
+            //
+            //                In such a scenario, we still do not want to panic but instead
+            //                move on. Currently lettre::smtp::error::Error does not suppo-
+            //                rt the `fn kind` function to be able to handle error variant-
+            //                s. Try to figure out if there is another way to handle them.
+            Err(_) => Ok(self),
+        }
+    }
+
+    pub fn all(&mut self) -> Result<&DomainMetadata> {
+        &self.dns_resolvable();
+        &self.mx_check();
+        
+        Ok(self)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_dns_lookup() {
-        let mut domain_store = Arc::new(Mutex::new(HashMap::new()));
-        assert!(enrich(
-            EnrichmentMode::DnsLookup,
-            vec!["example.com".to_string()],
-            &mut domain_store,
-        )
-        .is_ok())
-    }
+
 
     #[test]
     fn test_mx_check() {
-        let mut domain_store = Arc::new(Mutex::new(HashMap::new()));
-        assert!(enrich(
-            EnrichmentMode::MxCheck,
-            vec!["example.com".to_string()],
-            &mut domain_store,
-        )
-        .is_ok())
+        let mut domain_metadata = DomainMetadata::new("example.com");
+        assert!(domain_metadata.mx_check().is_ok());
+    }
+
+    #[test]
+    fn test_all_modes() {
+        let mut domain_metadata = DomainMetadata::new("example.com");
+        assert!(domain_metadata.all().is_ok());
+    }
+
+    #[test]
+    fn test_dns_lookup() {
+        let mut domain_metadata = DomainMetadata::new("example.com");
+        assert!(domain_metadata.dns_resolvable().is_ok());
     }
 }
