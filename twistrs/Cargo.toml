@@ -13,4 +13,4 @@ dns-lookup   = "1.0.1"
 lettre       = "0.9.3"
 lettre_email = "0.9.3"
 clap = "3.0.0-beta.1"
-
+futures = "0.3"

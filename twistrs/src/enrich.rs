@@ -5,7 +5,6 @@ use std::fmt;
 use lettre::{SmtpClient, Transport};
 use lettre_email::EmailBuilder;
 
-
 type Result<T> = std::result::Result<T, EnrichmentError>;
 
 #[derive(Copy, Clone, Debug)]
@@ -21,26 +20,21 @@ impl fmt::Display for EnrichmentError {
 /// Container to store interesting FQDN metadata
 /// on domains that we resolvable and have some
 /// interesting properties.
-#[derive(Debug)]
-pub struct DomainMetadata<'a> {
-    pub fqdn: &'a str,
+#[derive(Debug, Clone)]
+pub struct DomainMetadata {
+    pub fqdn: String,
     pub ips: Option<Vec<IpAddr>>,
     pub smtp: Option<SmtpMetadata>,
 }
 
-#[derive(Debug)]
-struct ResolvedDomain {
-    ips: Vec<IpAddr>,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SmtpMetadata {
     is_positive: bool,
     message: String,
 }
 
-impl<'a> DomainMetadata<'a> {
-    pub fn new(fqdn: &'a str) -> DomainMetadata<'a> {
+impl DomainMetadata {
+    pub fn new(fqdn: String) -> DomainMetadata {
         DomainMetadata {
             fqdn: fqdn,
             ips: None,
@@ -48,17 +42,38 @@ impl<'a> DomainMetadata<'a> {
         }
     }
 
-    pub fn dns_resolvable(&mut self) -> Result<&DomainMetadata> {
+    pub async fn dns_resolvable(&self) -> Result<DomainMetadata> {
         match lookup_host(&self.fqdn) {
             Ok(ips) => {
-                self.ips =  Some(ips);
-                Ok(self)
+                Ok(DomainMetadata {
+                    fqdn: self.fqdn.clone(),
+                    ips: Some(ips),
+                    smtp: None
+                })
             },
-            Err(_) => Err(EnrichmentError),
+            Err(e) => {
+                // @CLEANUP(JDB): This, is, BAD. This needs to, in the future, first
+                //                try to resolve a domain. If this fails, we will g-
+                //                et back the following OS Err:
+                //
+                //                ```
+                //                Os {
+                //                    code: 11001,
+                //                    kind: Other,
+                //                    message: "No such host is known.",
+                //                }
+                //                ```
+                // 
+                //                Which is an expected Err that we should catch an-
+                //                d wrap into an Ok(). Other Errs should be bubble-
+                //                d up to the caller.           
+                // dbg!(e);
+                Err(EnrichmentError)
+            },
         }
     }
     
-    pub fn mx_check(&mut self) -> Result<&DomainMetadata> {
+    pub async fn mx_check(&self) -> Result<DomainMetadata> {
         let email = EmailBuilder::new()
             .to("twistrs@sample.tst")
             .from("twistrs@sample.tst")
@@ -75,16 +90,18 @@ impl<'a> DomainMetadata<'a> {
     
         match result {
             Ok(response) => {
-                self.smtp = Some(SmtpMetadata {
-                    is_positive: response.is_positive(),
-                    message: response
-                        .message
-                        .into_iter()
-                        .map(|s| s.to_string())
-                        .collect::<String>(),
-                });
-
-                Ok(self)
+                Ok(DomainMetadata {
+                    fqdn: self.fqdn.clone(),
+                    ips: None,
+                    smtp: Some(SmtpMetadata {
+                        is_positive: response.is_positive(),
+                        message: response
+                            .message
+                            .into_iter()
+                            .map(|s| s.to_string())
+                            .collect::<String>(),
+                    })
+                })
             },
 
             // @CLEANUP(JDB): Currently for most scenarios, the following call with return
@@ -94,39 +111,44 @@ impl<'a> DomainMetadata<'a> {
             //                move on. Currently lettre::smtp::error::Error does not suppo-
             //                rt the `fn kind` function to be able to handle error variant-
             //                s. Try to figure out if there is another way to handle them.
-            Err(_) => Ok(self),
+            Err(_) => Ok(DomainMetadata{
+                fqdn: self.fqdn.clone(),
+                ips: None,
+                smtp: None
+            }),
         }
     }
 
-    pub fn all(&mut self) -> Result<&DomainMetadata> {
-        &self.dns_resolvable();
-        &self.mx_check();
-        
-        Ok(self)
+    pub async fn all(&self) -> Result<Vec<DomainMetadata>> {
+
+        // @CLEANUP(JDB): This should use try_join! in the future instead
+        let result = futures::join!(self.dns_resolvable(), self.mx_check());
+
+        Ok(vec![result.0.unwrap(), result.1.unwrap()])
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use futures::executor::block_on;
 
 
     #[test]
     fn test_mx_check() {
-        let mut domain_metadata = DomainMetadata::new("example.com");
-        assert!(domain_metadata.mx_check().is_ok());
+        let domain_metadata = DomainMetadata::new(String::from("example.com"));
+        assert!(block_on(domain_metadata.mx_check()).is_ok());
     }
 
     #[test]
     fn test_all_modes() {
-        let mut domain_metadata = DomainMetadata::new("example.com");
-        assert!(domain_metadata.all().is_ok());
+        let domain_metadata = DomainMetadata::new(String::from("example.com"));
+        assert!(block_on(domain_metadata.all()).is_ok());
     }
 
     #[test]
     fn test_dns_lookup() {
-        let mut domain_metadata = DomainMetadata::new("example.com");
-        assert!(domain_metadata.dns_resolvable().is_ok());
+        let domain_metadata = DomainMetadata::new(String::from("example.com"));
+        assert!(block_on(domain_metadata.dns_resolvable()).is_ok());
     }
 }
