@@ -1,8 +1,8 @@
 use clap::{App, Arg};
 // use colored::*;
 
-use twistrs::permutate::Domain;
 use twistrs::enrich::DomainMetadata;
+use twistrs::permutate::Domain;
 
 #[tokio::main]
 async fn main() {
@@ -18,12 +18,12 @@ async fn main() {
 
     let domain = Domain::new(&matches.value_of("domain").unwrap()).unwrap();
 
-    let generated_domains = domain.all().unwrap();
-
-    for generated_domain in generated_domains {
-        match DomainMetadata::new(generated_domain).dns_resolvable().await {
-            Ok(result) => println!("{:?}", result),
-            Err(_) => {},
-        }
+    for domain in domain.all().unwrap() {
+        tokio::spawn(async move {
+            match DomainMetadata::new(domain).dns_resolvable().await {
+                Ok(result) => println!("{:?}", result),
+                Err(_) => {}
+            }
+        });
     }
 }
