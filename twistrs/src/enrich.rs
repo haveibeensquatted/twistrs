@@ -5,7 +5,7 @@ use std::fmt;
 use lettre::{SmtpClient, Transport};
 use lettre_email::EmailBuilder;
 
-pub type Result<T> = std::result::Result<T, EnrichmentError>;
+type Result<T> = std::result::Result<T, EnrichmentError>;
 
 #[derive(Copy, Clone, Debug)]
 pub struct EnrichmentError;
@@ -42,7 +42,7 @@ impl DomainMetadata {
         }
     }
 
-    pub fn dns_resolvable(&self) -> Result<DomainMetadata> {
+    pub async fn dns_resolvable(&self) -> Result<DomainMetadata> {
         match lookup_host(&self.fqdn) {
             Ok(ips) => {
                 Ok(DomainMetadata {
@@ -73,7 +73,7 @@ impl DomainMetadata {
         }
     }
     
-    pub fn mx_check(&self) -> Result<DomainMetadata> {
+    pub async fn mx_check(&self) -> Result<DomainMetadata> {
         let email = EmailBuilder::new()
             .to("twistrs@sample.tst")
             .from("twistrs@sample.tst")
@@ -119,34 +119,36 @@ impl DomainMetadata {
         }
     }
 
-    // pub fn all(&self) -> Result<Vec<DomainMetadata>> {
+    pub async fn all(&self) -> Result<Vec<DomainMetadata>> {
 
-    //     // @CLEANUP(JDB): This should use try_join! in the future instead
-    //     let result = futures::join!(self.dns_resolvable(), self.mx_check());
+        // @CLEANUP(JDB): This should use try_join! in the future instead
+        let result = futures::join!(self.dns_resolvable(), self.mx_check());
 
-    //     Ok(vec![result.0.unwrap(), result.1.unwrap()])
-    // }
+        Ok(vec![result.0.unwrap(), result.1.unwrap()])
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::executor::block_on;
+
 
     #[test]
     fn test_mx_check() {
         let domain_metadata = DomainMetadata::new(String::from("example.com"));
-        assert!(domain_metadata.mx_check().is_ok());
+        assert!(block_on(domain_metadata.mx_check()).is_ok());
     }
 
     #[test]
     fn test_all_modes() {
         let domain_metadata = DomainMetadata::new(String::from("example.com"));
-        assert!(domain_metadata.all().is_ok());
+        assert!(block_on(domain_metadata.all()).is_ok());
     }
 
     #[test]
     fn test_dns_lookup() {
         let domain_metadata = DomainMetadata::new(String::from("example.com"));
-        assert!(domain_metadata.dns_resolvable().is_ok());
+        assert!(block_on(domain_metadata.dns_resolvable()).is_ok());
     }
 }
