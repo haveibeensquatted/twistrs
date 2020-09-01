@@ -9,8 +9,11 @@ publicsuffix = "1.5"
 lazy_static  = "1.4.0"
 phf	         = { version = "0.8.0", features = ["macros"] }
 rayon        = "1.3.0"
-dns-lookup   = "1.0.1"
 lettre       = "0.9.3"
 lettre_email = "0.9.3"
 clap = "3.0.0-beta.1"
 futures = "0.3"
+threadpool = "1.8.1"
+crossbeam = '0.2'
+num_cpus = '1.3.0'
+tokio  = { version = "0.2.22", features = ["dns"] }

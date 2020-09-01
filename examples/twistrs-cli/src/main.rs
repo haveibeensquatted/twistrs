@@ -1,29 +1,36 @@
-use clap::{App, Arg};
-// use colored::*;
+use tokio::sync::mpsc;
 
 use twistrs::enrich::DomainMetadata;
 use twistrs::permutate::Domain;
 
+
 #[tokio::main]
 async fn main() {
-    let matches = App::new("twistrs-cli")
-        .version("0.1.0")
-        .author("Juxhin D. Brigjaj <juxhin@phishdeck.com>")
-        .arg(
-            Arg::new("domain")
-                .about("domain to permutate and enrich")
-                .required(true),
-        )
-        .get_matches();
+    let domain = Domain::new("google.com").unwrap();
 
-    let domain = Domain::new(&matches.value_of("domain").unwrap()).unwrap();
+    let _permutations = domain.all().unwrap().collect::<Vec<String>>();
+    let (tx, mut rx) = mpsc::channel(1000);
 
-    for domain in domain.all().unwrap() {
+    for (i, v) in _permutations.into_iter().enumerate() {
+        let domain_metadata = DomainMetadata::new(format!("{}:80", v.clone()));
+        let mut tx = tx.clone();
+
         tokio::spawn(async move {
-            match DomainMetadata::new(domain).dns_resolvable().await {
-                Ok(result) => println!("{:?}", result),
-                Err(_) => {}
+            if let Err(_) = tx.send((i, v.clone(), domain_metadata.dns_resolvable().await)).await {
+                println!("received dropped");
+                return;
             }
+
+            drop(tx);
         });
+    }
+
+    drop(tx);
+
+    while let Some(i) = rx.recv().await {
+        match i.2 {
+            Ok(v) => println!("got: {:?}", v),
+            Err(_) => {},
+        }
     }
 }

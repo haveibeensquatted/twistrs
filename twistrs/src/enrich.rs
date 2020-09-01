@@ -1,17 +1,19 @@
-use dns_lookup::lookup_host;
 use std::net::IpAddr;
 use std::fmt;
 
 use lettre::{SmtpClient, Transport};
 use lettre_email::EmailBuilder;
 
-type Result<T> = std::result::Result<T, EnrichmentError>;
+use tokio::net;
+
+pub type Result<T> = std::result::Result<T, EnrichmentError>;
 
 #[derive(Copy, Clone, Debug)]
 pub struct EnrichmentError;
 
 impl fmt::Display for EnrichmentError {
 
+    // @CLEANUP(jdb): Make this something meaningful, if it needs to be
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "")
     }
@@ -43,33 +45,18 @@ impl DomainMetadata {
     }
 
     pub async fn dns_resolvable(&self) -> Result<DomainMetadata> {
-        match lookup_host(&self.fqdn) {
-            Ok(ips) => {
+        match net::lookup_host(&self.fqdn).await {
+            Ok(addrs) => {
                 Ok(DomainMetadata {
                     fqdn: self.fqdn.clone(),
-                    ips: Some(ips),
+                    ips: Some(addrs.map(|addr| addr.ip()).collect()),
                     smtp: None
                 })
             },
             Err(e) => {
-                // @CLEANUP(JDB): This, is, BAD. This needs to, in the future, first
-                //                try to resolve a domain. If this fails, we will g-
-                //                et back the following OS Err:
-                //
-                //                ```
-                //                Os {
-                //                    code: 11001,
-                //                    kind: Other,
-                //                    message: "No such host is known.",
-                //                }
-                //                ```
-                // 
-                //                Which is an expected Err that we should catch an-
-                //                d wrap into an Ok(). Other Errs should be bubble-
-                //                d up to the caller.           
                 // dbg!(e);
                 Err(EnrichmentError)
-            },
+            }
         }
     }
     
