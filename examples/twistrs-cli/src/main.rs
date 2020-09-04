@@ -1,5 +1,7 @@
 use tokio::sync::mpsc;
 
+use std::collections::HashSet;
+
 use twistrs::enrich::DomainMetadata;
 use twistrs::permutate::Domain;
 
@@ -8,11 +10,13 @@ use twistrs::permutate::Domain;
 async fn main() {
     let domain = Domain::new("google.com").unwrap();
 
-    let _permutations = domain.all().unwrap().collect::<Vec<String>>();
-    let (tx, mut rx) = mpsc::channel(1000);
+    let mut _permutations = domain.all().unwrap().collect::<HashSet<String>>();
+    _permutations.insert(String::from(domain.fqdn.clone()));
+
+    let (tx, mut rx) = mpsc::channel(5000);
 
     for (i, v) in _permutations.into_iter().enumerate() {
-        let domain_metadata = DomainMetadata::new(format!("{}:80", v.clone()));
+        let domain_metadata = DomainMetadata::new(v.clone());
         let mut tx = tx.clone();
 
         tokio::spawn(async move {
