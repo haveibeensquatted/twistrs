@@ -1,10 +1,12 @@
 use std::net::IpAddr;
 use std::fmt;
 
-use lettre::{SmtpClient, Transport};
-use lettre_email::EmailBuilder;
-
 use tokio::net;
+
+use async_smtp::{
+    ClientSecurity, Envelope, SendableEmail, SmtpClient
+};
+
 
 pub type Result<T> = std::result::Result<T, EnrichmentError>;
 
@@ -45,7 +47,7 @@ impl DomainMetadata {
     }
 
     pub async fn dns_resolvable(&self) -> Result<DomainMetadata> {
-        match net::lookup_host(&self.fqdn).await {
+        match net::lookup_host(&format!("{}:80", self.fqdn)[..]).await {
             Ok(addrs) => {
                 Ok(DomainMetadata {
                     fqdn: self.fqdn.clone(),
@@ -53,56 +55,65 @@ impl DomainMetadata {
                     smtp: None
                 })
             },
-            Err(e) => {
-                // dbg!(e);
+            Err(_) => {
                 Err(EnrichmentError)
             }
         }
     }
     
     pub async fn mx_check(&self) -> Result<DomainMetadata> {
-        let email = EmailBuilder::new()
-            .to("twistrs@sample.tst")
-            .from("twistrs@sample.tst")
-            .subject("")
-            .text("And that's how the cookie crumbles\n")
-            .build()
-            .unwrap();
-    
-        // Open a local connection on port 25
-        let mut mailer = SmtpClient::new_unencrypted_localhost().unwrap().transport();
-    
-        // Send the email
-        let result = mailer.send(email.into());
-    
-        match result {
-            Ok(response) => {
-                Ok(DomainMetadata {
+
+        let email = SendableEmail::new(
+            Envelope::new(
+                Some("twistrs@example.com".parse().unwrap()),
+                vec!["twistrs@example.com".parse().unwrap()],
+            ).unwrap(),
+            "Twistrs", 
+            "And that's how the cookie crumbles\n",
+        );
+
+        let smtp_domain = format!("{}:25", &self.fqdn);
+
+        match SmtpClient::with_security(smtp_domain.clone(), ClientSecurity::None).await {
+
+            // TODO(jdb): Figure out how to clean this up
+            Ok(smtp) => {
+                match smtp.into_transport().connect_and_send(email).await {
+                    Ok(response) => {
+                        Ok(DomainMetadata {
+                            fqdn: self.fqdn.clone(),
+                            ips: None,
+                            smtp: Some(SmtpMetadata {
+                                is_positive: response.is_positive(),
+                                message: response
+                                    .message
+                                    .into_iter()
+                                    .map(|s| s.to_string())
+                                    .collect::<String>(),
+                            })
+                        })
+                    },
+
+                    // @CLEANUP(JDB): Currently for most scenarios, the following call with return
+                    //                an `std::io::ErrorKind::ConnectionRefused` which is normal.
+                    //
+                    //                In such a scenario, we still do not want to panic but instead
+                    //                move on. Currently lettre::smtp::error::Error does not suppo-
+                    //                rt the `fn kind` function to be able to handle error variant-
+                    //                s. Try to figure out if there is another way to handle them.
+                    Err(e) => {
+                        dbg!(e);
+                        Err(EnrichmentError)
+                    },
+                }
+            },
+            Err(_) => {
+                Ok(DomainMetadata{
                     fqdn: self.fqdn.clone(),
                     ips: None,
-                    smtp: Some(SmtpMetadata {
-                        is_positive: response.is_positive(),
-                        message: response
-                            .message
-                            .into_iter()
-                            .map(|s| s.to_string())
-                            .collect::<String>(),
-                    })
-                })
-            },
-
-            // @CLEANUP(JDB): Currently for most scenarios, the following call with return
-            //                an `std::io::ErrorKind::ConnfectionRefused` which is normal.
-            //
-            //                In such a scenario, we still do not want to panic but instead
-            //                move on. Currently lettre::smtp::error::Error does not suppo-
-            //                rt the `fn kind` function to be able to handle error variant-
-            //                s. Try to figure out if there is another way to handle them.
-            Err(_) => Ok(DomainMetadata{
-                fqdn: self.fqdn.clone(),
-                ips: None,
-                smtp: None
-            }),
+                    smtp: None
+                })                
+            }
         }
     }
 

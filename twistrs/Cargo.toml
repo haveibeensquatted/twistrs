@@ -11,6 +11,8 @@ phf	         = { version = "0.8.0", features = ["macros"] }
 rayon        = "1.3.0"
 lettre       = "0.9.3"
 lettre_email = "0.9.3"
+async-smtp = "0.3.4"
+async-native-tls = "0.3.3"
 clap = "3.0.0-beta.1"
 futures = "0.3"
 threadpool = "1.8.1"
