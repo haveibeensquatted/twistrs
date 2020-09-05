@@ -101,9 +101,12 @@ impl DomainMetadata {
                     //                move on. Currently lettre::smtp::error::Error does not suppo-
                     //                rt the `fn kind` function to be able to handle error variant-
                     //                s. Try to figure out if there is another way to handle them.
-                    Err(e) => {
-                        dbg!(e);
-                        Err(EnrichmentError)
+                    Err(_) => {
+                        Ok(DomainMetadata{
+                            fqdn: self.fqdn.clone(),
+                            ips: None,
+                            smtp: None
+                        })
                     },
                 }
             },
@@ -132,20 +135,20 @@ mod tests {
     use futures::executor::block_on;
 
 
-    #[test]
-    fn test_mx_check() {
+    #[tokio::test]
+    async fn test_mx_check() {
         let domain_metadata = DomainMetadata::new(String::from("example.com"));
         assert!(block_on(domain_metadata.mx_check()).is_ok());
     }
 
-    #[test]
-    fn test_all_modes() {
+    #[tokio::test]
+    async fn test_all_modes() {
         let domain_metadata = DomainMetadata::new(String::from("example.com"));
         assert!(block_on(domain_metadata.all()).is_ok());
     }
 
-    #[test]
-    fn test_dns_lookup() {
+    #[tokio::test]
+    async fn test_dns_lookup() {
         let domain_metadata = DomainMetadata::new(String::from("example.com"));
         assert!(block_on(domain_metadata.dns_resolvable()).is_ok());
     }

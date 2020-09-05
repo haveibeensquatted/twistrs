@@ -8,7 +8,7 @@ use twistrs::permutate::Domain;
 
 #[tokio::main]
 async fn main() {
-    let domain = Domain::new("google.com").unwrap();
+    let domain = Domain::new("gig.com").unwrap();
 
     let mut _permutations = domain.all().unwrap().collect::<HashSet<String>>();
     _permutations.insert(String::from(domain.fqdn.clone()));
@@ -20,7 +20,7 @@ async fn main() {
         let mut tx = tx.clone();
 
         tokio::spawn(async move {
-            if let Err(_) = tx.send((i, v.clone(), domain_metadata.dns_resolvable().await)).await {
+            if let Err(_) = tx.send((i, v.clone(), domain_metadata.mx_check().await)).await {
                 println!("received dropped");
                 return;
             }
