@@ -1,3 +1,55 @@
+//! Twistrs is a domain name permutation and enumeration library
+//! that is built on top of async Rust.
+//!
+//! The library is designed to be fast, modular and easy-to-use
+//! for clients.
+//!
+//! The two primary structs to look into are [Domain](./permutate/struct.Domain.html)
+//! and [DomainMetadata](./enrich/struct.DomainMetadata.html).
+//!
+//! Additionally the module documentation for [permutation](./permutate/index.html)
+//! and [enumeration](./enrich/index.html) provides more
+//! granular details on how each module may be used indepedently.
+//!
+//! domain permutation and enrichment asynchronously.
+//!
+//! ### Example
+//!
+//! The following is a trivial example using [Tokio mpsc](https://docs.rs/tokio/0.2.22/tokio/sync/mpsc/index.html).
+//!
+//! ```
+//! use twistrs::enrich::DomainMetadata;
+//! use twistrs::permutate::Domain;
+//!
+//! use tokio::sync::mpsc;
+//!
+//! let domain = Domain::new("google.com").unwrap();
+//! let permutations = domain.all().unwrap();
+//!
+//! let (tx, mut rx) = mpsc::channel(1000);
+//!
+//! for permutation in permutations {
+//!     let domain_metadata = DomainMetadata::new(permutation.clone());
+//!     let mut tx = tx.clone();
+//!
+//!     tokio::spawn(async move
+//!         if let Err(_) = tx.send((i, v.clone(), domain_metadata.dns_resolvable().await)).await {
+//!             println!("received dropped");
+//!             return;
+//!         }
+//!
+//!         drop(tx);
+//!     });
+//!
+//!     drop(tx);
+//!
+//!     while let Some(i) = rx.recv().await {
+//!         println!("{:?}", i);
+//!     }
+//! }
+//! ```
+//!
+
 #![deny(
     // TODO(jdb): Uncomment missing docs later on
     //missing_docs,
@@ -71,7 +123,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod constants;
-
+pub mod constants;
 pub mod enrich;
 pub mod permutate;

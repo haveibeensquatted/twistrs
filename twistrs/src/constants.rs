@@ -1,6 +1,7 @@
 use phf::phf_map;
 use publicsuffix::List;
 
+/// Static list of lowercase ASCII characters.
 // Stack allocate these at compile time
 pub static ASCII_LOWER: [char; 26] = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',

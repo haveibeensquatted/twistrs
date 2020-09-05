@@ -1,37 +1,67 @@
+//! The permutation module exposes functionality around generating
+//! multiple valid variations of a given domain. Note that this
+//! module is _only_ concerned with generating possible permutations
+//! of a given domain.
+//!
+//! For details on how to validate whether domains are actively used,
+//! please see `enrich.rs`.
+//!
+//! Example:
+//!
+//! ```
+//! use twistrs::permutate::Domain;
+//!
+//! let domain = Domain::new("google.com").unwrap();
+//! let domain_permutations = domain.all().unwrap().collect::<Vec<String>>();
+//! ```
+//!
+//! Additionally the permutation module can be used independently
+//! from the enrichment module.
 use crate::constants::{ASCII_LOWER, EFFECTIVE_TLDS, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
 
-use std::fmt;
 use std::collections::HashSet;
+use std::fmt;
 
+/// Temporary type-alias over `EnrichmentError`.
+type Result<T> = std::result::Result<T, PermutationError>;
 
+/// Wrapper around an FQDN to perform permutations against.
 #[derive(Default, Debug)]
 pub struct Domain<'a> {
+    /// The domain FQDN to generate permutations from.
     pub fqdn: &'a str,
 
+    /// The top-level domain of the FQDN (e.g. `.com`).
     tld: String,
+
+    /// The remainder of the domain (e.g. `google`).
     domain: String,
 }
 
-
-type Result<T> = std::result::Result<T, PermutationError>;
-
+#[deprecated(
+    since = "0.1.0",
+    note = "Prone to be removed in the future, does not currently provide any context."
+)]
 #[derive(Copy, Clone, Debug)]
 pub struct PermutationError;
 
 impl fmt::Display for PermutationError {
-
+    // @CLEANUP(jdb): Make this something meaningful, if it needs to be
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "")
     }
 }
 
 impl<'a> Domain<'a> {
+    /// Wrap a desired FQDN into a `Domain` container. Internally
+    /// will perform additional operations to break the domain into
+    /// one or more chunks to be used during domain permutations.
     pub fn new(fqdn: &'a str) -> Result<Domain<'a>> {
         match EFFECTIVE_TLDS.parse_domain(fqdn) {
             Ok(parsed_domain) => {
                 let parts = parsed_domain
                     .root()
-                    .unwrap() // TODO(jdb): Figure out how to handle this unwrapoverride enum
+                    .unwrap() // TODO(jdb): Figure out how to handle this unwrap
                     .split('.')
                     .collect::<Vec<&str>>();
 
@@ -47,49 +77,37 @@ impl<'a> Domain<'a> {
                 Ok(Domain { fqdn, tld, domain })
             }
 
-            // TODO(jdb): See how we can pass the lazy_static error here
-            //            since passing Err(e) is not thread-safe
             Err(_) => Err(PermutationError),
         }
     }
 
-    pub fn all(&self) -> Result<Box<dyn Iterator<Item=String>>> {
-        let permutations = self.addition()
-            .and_then(|i| Ok(
-                i.chain(self.bitsquatting()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.homoglyph()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.hyphentation()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.insertion()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.omission()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.repetition()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.replacement()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.subdomain()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.transposition()?)
-            ))
-            .and_then(|i| Ok(
-                i.chain(self.vowel_swap()?)
-            ))?;
-    
+    /// Generate any and all possible domain permutations for a given `Domain`.
+    ///
+    /// Returns `Iterator<String>` with an iterator of domain permutations
+    /// and includes the results of all other individual permutation methods.
+    ///
+    /// Any future permutations will also be included into this function call
+    /// without any changes required from any client implementations.
+    pub fn all(&self) -> Result<Box<dyn Iterator<Item = String>>> {
+        let permutations = self
+            .addition()
+            .and_then(|i| Ok(i.chain(self.bitsquatting()?)))
+            .and_then(|i| Ok(i.chain(self.homoglyph()?)))
+            .and_then(|i| Ok(i.chain(self.hyphentation()?)))
+            .and_then(|i| Ok(i.chain(self.insertion()?)))
+            .and_then(|i| Ok(i.chain(self.omission()?)))
+            .and_then(|i| Ok(i.chain(self.repetition()?)))
+            .and_then(|i| Ok(i.chain(self.replacement()?)))
+            .and_then(|i| Ok(i.chain(self.subdomain()?)))
+            .and_then(|i| Ok(i.chain(self.transposition()?)))
+            .and_then(|i| Ok(i.chain(self.vowel_swap()?)))?;
+
         Ok(Box::new(permutations))
     }
 
-    pub fn addition(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Add every ASCII lowercase character between the Domain
+    /// (e.g. `google`) and top-level domain (e.g. `.com`).
+    pub fn addition(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
         for c in ASCII_LOWER.iter() {
             result.push(format!("{}{}.{}", self.domain, c.to_string(), self.tld));
@@ -98,23 +116,26 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn bitsquatting(&self) -> Result<Box<dyn Iterator<Item=String>>> {
-        // Following implementation takes inspiration from the following content:
-        //  - https://github.com/artemdinaburg/bitsquat-script/blob/master/bitsquat.py
-        //  - http://dinaburg.org/bitsquatting.html
-        //
-        // Go through each char in the domain and XOR it against 8 separate masks:
-        //  00000001 ^ chr
-        //  00000010 ^ chr
-        //  00000100 ^ chr
-        //  00001000 ^ chr
-        //  00010000 ^ chr
-        //  00100000 ^ chr
-        //  01000000 ^ chr
-        //  10000000 ^ chr
-        //
-        //  Then check if the resulting bit operation falls within ASCII range.
-
+    /// Following implementation takes inspiration from the following content:
+    ///
+    ///  - https://github.com/artemdinaburg/bitsquat-script/blob/master/bitsquat.py
+    ///  - http://dinaburg.org/bitsquatting.html
+    ///
+    /// Go through each char in the domain and XOR it against 8 separate masks:
+    ///
+    /// ```
+    ///  00000001 ^ chr
+    ///  00000010 ^ chr
+    ///  00000100 ^ chr
+    ///  00001000 ^ chr
+    ///  00010000 ^ chr
+    ///  00100000 ^ chr
+    ///  01000000 ^ chr
+    ///  10000000 ^ chr
+    /// ```
+    ///
+    /// Then check if the resulting bit operation falls within ASCII range.
+    pub fn bitsquatting(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
@@ -142,7 +163,9 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn homoglyph(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method that replaces ASCII characters with multiple homoglyphs
+    /// similar to the respective ASCII character.
+    pub fn homoglyph(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         // @CLEANUP(jdb): Tidy this entire mess up
         let mut result_first_pass: HashSet<String> = HashSet::new();
         let mut result_second_pass: HashSet<String> = HashSet::new();
@@ -214,13 +237,17 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Ok(Box::new((&result_first_pass | &result_second_pass)
-            .into_iter()
-            .collect::<Vec<String>>()
-            .into_iter()))
+        Ok(Box::new(
+            (&result_first_pass | &result_second_pass)
+                .into_iter()
+                .collect::<Vec<String>>()
+                .into_iter(),
+        ))
     }
 
-    pub fn hyphentation(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method that inserts hyphens (i.e. `-`) between each
+    /// character in the domain where valid.
+    pub fn hyphentation(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
@@ -238,7 +265,10 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn insertion(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method that inserts specific characters that are close to
+    /// any character in the domain depending on the keyboard (e.g. `Q` next
+    /// to `W` in qwerty keyboard layout.
+    pub fn insertion(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.to_string();
 
@@ -268,7 +298,8 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn omission(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method that selectively removes a character from the domain.
+    pub fn omission(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, _) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -284,7 +315,9 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn repetition(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method that repeats characters twice provided they are
+    /// alphabetic characters (e.g. `google.com` -> `gooogle.com`).
+    pub fn repetition(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -302,7 +335,9 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn replacement(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method similar to insertion, except that it replaces a given
+    /// character with another character in proximity depending on keyboard layout.
+    pub fn replacement(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -334,7 +369,7 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn subdomain(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    pub fn subdomain(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.chars().collect::<Vec<char>>();
 
@@ -354,7 +389,9 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn transposition(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method that swaps out characters in the domain (e.g.
+    /// `google.com` -> `goolge.com`).
+    pub fn transposition(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
         let fqdn = self.fqdn.chars().collect::<Vec<char>>();
 
@@ -378,7 +415,9 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
-    pub fn vowel_swap(&self) -> Result<Box<dyn Iterator<Item=String>>> {
+    /// Permutation method that swaps vowels for other vowels (e.g.
+    /// `google.com` -> `gougle.com`).
+    pub fn vowel_swap(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
 
         for (i, c) in self.fqdn.chars().collect::<Vec<char>>().iter().enumerate() {
@@ -408,7 +447,10 @@ mod tests {
         let permutations = d.addition();
 
         assert!(permutations.is_ok());
-        assert_eq!(permutations.unwrap().collect::<Vec<String>>().len(), ASCII_LOWER.len());
+        assert_eq!(
+            permutations.unwrap().collect::<Vec<String>>().len(),
+            ASCII_LOWER.len()
+        );
     }
 
     #[test]
