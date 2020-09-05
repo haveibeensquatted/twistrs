@@ -1,8 +1,6 @@
-# Twistr ![Status](https://img.shields.io/static/v1?label=Status&message=alpha&color=yellow) ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master)
+# Twistr ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master)
 
-  > This project is still a work-in-progress and the core library interface is bound to change soon. The following are a list of action items and features to implement before releasing an initial beta version.
-  
----
+## [docs](https://docs.rs/twistrs)
 
 <img align="left" width="20%" height="20%" src="res/logo-x1024.png">
 
@@ -14,23 +12,37 @@
 
 The core library is composed of the domain permutation module and the domain enrichment module that can be used individually or chained together.
 
+The following is a boiled-down version of the [twistrs-cli example](examples/twistrs-cli/src/main.rs) that uses [tokio mpsc](https://docs.rs/tokio/0.2.22/tokio/sync/mpsc/index.html).
+
 ```rust
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use twistrs::enrich::DomainMetadata;
+use twistrs::permutate::Domain;
 
-use twistrs::enrich::{enrich, DomainStore, EnrichmentMode};
-use twistrs::permutate::{Domain, PermutationMode};
+use tokio::sync::mpsc;
 
-let domain = Domain::new("www.example.com").unwrap();
+let domain = Domain::new("google.com").unwrap();
+let permutations = domain.all().unwrap();
 
-match domain.permutate(PermutationMode::All) {
-    Ok(permutations) => {  
-      let mut domain_store: DomainStore = Arc::new(Mutex::new(HashMap::new()));
-      enrich(EnrichmentMode::DnsLookup, permutations, &mut domain_store).unwrap();
-      
-      println!("Output: {:?}", &domain_store.lock().unwrap());
+let (tx, mut rx) = mpsc::channel(1000);
+
+for permutation in permutations {
+    let domain_metadata = DomainMetadata::new(permutation.clone());
+    let mut tx = tx.clone();
+
+    tokio::spawn(async move
+        if let Err(_) = tx.send((i, v.clone(), domain_metadata.dns_resolvable().await)).await {
+            println!("received dropped");
+            return;
+        }
+
+        drop(tx);
+    });
+
+    drop(tx);
+
+    while let Some(i) = rx.recv().await {
+        println!("{:?}", i);
     }
-    Err(e) => panic!(e),
 }
 ```
 
@@ -71,7 +83,7 @@ match domain.permutate(PermutationMode::All) {
 - [ ] Benchmarking
 - [x] Concurrent
 - [ ] Blog post
-- [ ] Crates.io
+- [x] [Crates.io](https://crates.io/crates/twistrs)
 
 ---
 
