@@ -1,6 +1,5 @@
 use phf::phf_map;
 use publicsuffix::List;
-use rayon::ThreadPoolBuilder;
 
 // Stack allocate these at compile time
 pub static ASCII_LOWER: [char; 26] = [
@@ -169,16 +168,6 @@ lazy_static! {
     //  Ref: https://docs.rs/publicsuffix/1.5.4/publicsuffix/struct.List.html
     pub static ref EFFECTIVE_TLDS: List =
         List::fetch().unwrap();
-
-    // This can only be called once, we use lazy_static to initialize
-    // it once on startup.
-    //
-    // @CLEANUP(jdb): Do we need to have a binding here? Can't we just
-    //                initialize it?
-    pub static ref THREAD_POOL: () = ThreadPoolBuilder::new()
-        .num_threads(100)
-        .build_global()
-        .unwrap();
 
     pub static ref KEYBOARD_LAYOUTS: Vec<&'static phf::Map<char, &'static str>> = vec![
         &QWERTY_KEYBOARD_LAYOUT,
