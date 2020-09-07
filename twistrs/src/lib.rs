@@ -23,23 +23,27 @@
 //!
 //! use tokio::sync::mpsc;
 //!
-//! let domain = Domain::new("google.com").unwrap();
-//! let permutations = domain.all().unwrap();
 //!
-//! let (tx, mut rx) = mpsc::channel(1000);
+//! #[tokio::main]
+//! async fn main() {
+//!     let domain = Domain::new("google.com").unwrap();
+//!     let permutations = domain.addition().unwrap();
 //!
-//! for permutation in permutations {
-//!     let domain_metadata = DomainMetadata::new(permutation.clone());
-//!     let mut tx = tx.clone();
+//!     let (tx, mut rx) = mpsc::channel(1000);
 //!
-//!     tokio::spawn(async move
-//!         if let Err(_) = tx.send((i, v.clone(), domain_metadata.dns_resolvable().await)).await {
-//!             println!("received dropped");
-//!             return;
-//!         }
+//!     for permutation in permutations {
+//!         let domain_metadata = DomainMetadata::new(permutation.clone());
+//!         let mut tx = tx.clone();
 //!
-//!         drop(tx);
-//!     });
+//!         tokio::spawn(async move {
+//!             if let Err(_) = tx.send((permutation.clone(), domain_metadata.dns_resolvable().await)).await {
+//!                 println!("received dropped");
+//!                 return;
+//!             }
+//!
+//!             drop(tx);
+//!         });
+//!     }
 //!
 //!     drop(tx);
 //!
@@ -47,6 +51,7 @@
 //!         println!("{:?}", i);
 //!     }
 //! }
+//!
 //! ```
 //!
 

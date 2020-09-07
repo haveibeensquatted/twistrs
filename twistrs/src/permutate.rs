@@ -123,7 +123,6 @@ impl<'a> Domain<'a> {
     ///
     /// Go through each char in the domain and XOR it against 8 separate masks:
     ///
-    /// ```
     ///  00000001 ^ chr
     ///  00000010 ^ chr
     ///  00000100 ^ chr
@@ -132,7 +131,6 @@ impl<'a> Domain<'a> {
     ///  00100000 ^ chr
     ///  01000000 ^ chr
     ///  10000000 ^ chr
-    /// ```
     ///
     /// Then check if the resulting bit operation falls within ASCII range.
     pub fn bitsquatting(&self) -> Result<Box<dyn Iterator<Item = String>>> {

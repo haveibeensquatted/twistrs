@@ -10,8 +10,11 @@
 //! ```
 //! use twistrs::enrich::DomainMetadata;
 //!
-//! let domain_metadata = DomainMetadata::new("google.com");
-//! domain_metadata.dns_resolvable().await;
+//! #[tokio::main]
+//! async fn main() {
+//!     let domain_metadata = DomainMetadata::new(String::from("google.com"));
+//!     domain_metadata.dns_resolvable().await;
+//! }
 //! ```
 //!
 //! Note that the enrichment module is independent from the
