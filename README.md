@@ -1,12 +1,21 @@
-# Twistr ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master)
-
-## [docs](https://docs.rs/twistrs)
+# Twistr ([docs](https://docs.rs/twistrs)) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master)
 
 <img align="left" width="20%" height="20%" src="res/logo-x1024.png">
 
 > Twistr is a Domain name permutation and enumeration library powered by Rust. It aims to directly port the well-known [dnstwist](https://github.com/elceef/dnstwist) tool allowing for fast and flexible interfacing capabilities with the core libraries based on client's requirements.
 
 <br/><br/><br/><br/><br/><br/>
+
+## Quickstart
+
+This is particularly helpful if you're from outside the Rust space and would like to get up and running quickly. 
+
+1. Install [Rust](https://www.rust-lang.org/tools/install)
+2. `git clone https://github.com/JuxhinDB/twistrs.git`
+3. `cd examples/twistrs-cli`
+4. `cargo r -- github.com`
+
+Keep in mind that this will not run with a release build and will be naturally slower, however it should allow you to explore some of the functionality.
 
 ## Usage
 
