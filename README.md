@@ -82,7 +82,7 @@ for permutation in permutations {
 
 - [ ] Benchmarking
 - [x] Concurrent
-- [ ] Blog post
+- [x] [Blog post](https://blog.digital-horror.com/twistrs)
 - [x] [Crates.io](https://crates.io/crates/twistrs)
 
 ---
