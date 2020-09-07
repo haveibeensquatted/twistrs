@@ -5,7 +5,7 @@ authors = ["Juxhin Dyrmishi Brigjaj <juxhin@phishdeck.com>"]
 edition = "2018"
 
 [dependencies]
-twistrs = { path = "../../twistrs", version = "0.1.0" } 
+twistrs = { path = "../../twistrs", version = "0.1.1-beta" } 
 clap = "3.0.0-beta.1"
 colored = "1.9.3"
 tokio = { version = "0.2", features = ["full"] }
