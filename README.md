@@ -20,23 +20,26 @@ use twistrs::permutate::Domain;
 
 use tokio::sync::mpsc;
 
-let domain = Domain::new("google.com").unwrap();
-let permutations = domain.all().unwrap();
+#[tokio::main]
+async fn main() {
+    let domain = Domain::new("google.com").unwrap();
+    let permutations = domain.all().unwrap();
 
-let (tx, mut rx) = mpsc::channel(1000);
+    let (tx, mut rx) = mpsc::channel(1000);
 
-for permutation in permutations {
-    let domain_metadata = DomainMetadata::new(permutation.clone());
-    let mut tx = tx.clone();
+    for permutation in permutations {
+        let domain_metadata = DomainMetadata::new(permutation.clone());
+        let mut tx = tx.clone();
 
-    tokio::spawn(async move
-        if let Err(_) = tx.send((i, v.clone(), domain_metadata.dns_resolvable().await)).await {
-            println!("received dropped");
-            return;
-        }
+        tokio::spawn(async move
+            if let Err(_) = tx.send((permutation.clone(), domain_metadata.dns_resolvable().await)).await {
+                println!("received dropped");
+                return;
+            }
 
-        drop(tx);
-    });
+            drop(tx);
+        });
+    }
 
     drop(tx);
 
