@@ -73,10 +73,10 @@ pub struct DomainMetadata {
 #[derive(Debug, Clone)]
 pub struct SmtpMetadata {
     /// Whether the email was dispatched successfully
-    is_positive: bool,
+    pub is_positive: bool,
 
     /// Message received back from the SMTP server
-    message: String,
+    pub message: String,
 }
 
 impl DomainMetadata {
