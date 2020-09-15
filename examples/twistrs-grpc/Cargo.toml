@@ -1,0 +1,23 @@
+[package]
+name = "twistrs-grpc"
+version = "0.1.0"
+authors = ["Juxhin Dyrmishi Brigjaj <juxhin@phishdeck.com>"]
+edition = "2018"
+
+[dependencies]
+twistrs = "0.1.2-beta"
+prost = "0.6.1"
+tonic = {version="0.2.0",features = ["tls"]}
+tokio = {version="0.2.18",features = ["stream", "macros"]}
+futures = "0.3"
+
+[build-dependencies]
+tonic-build = "0.2.0"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"

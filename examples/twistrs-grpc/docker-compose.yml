@@ -1,0 +1,37 @@
+version: "3"
+
+services:
+    envoy:
+        restart: always
+        image: envoyproxy/envoy-dev:5d95032baa803f853e9120048b56c8be3dab4b0d
+        container_name: twistrs-grpc-envoy
+        networks:
+            - twistrs-network-mesh
+        volumes:
+            - ./envoy.yaml:/etc/envoy/envoy.yaml
+        ports:
+            - 9901:9901
+            - 8080:8080
+        depends_on:
+            - twistrs-grpc-server
+        links:
+            - "twistrs-grpc-server:twistrs-grpc-server"
+    
+    twistrs-grpc-server:
+        restart: always
+        image: twistrs-grpc-server:dev
+        build: .
+        networks:
+            twistrs-network-mesh:
+                aliases:
+                    - twistrs-grpc-server
+        container_name: twistrs-grpc-server
+        environment:
+            - RUST_BACKTRACE=full
+        expose:
+            - "50051"
+        ports:
+            - 50051:50051
+
+networks:
+    twistrs-network-mesh: {}

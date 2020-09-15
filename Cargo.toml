@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "twistrs",
+    "examples/twistrs-grpc",
     "examples/twistrs-cli",
     "examples/twistrs-ws"
 ]
