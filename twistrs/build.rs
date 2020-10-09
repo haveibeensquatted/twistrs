@@ -1,5 +1,9 @@
+
+use punycode;
+
 use std::io::{self, BufRead};
 use std::{env, fs, path::Path};
+
 
 fn main() {
     // The following build script converts a number of dictionaries
@@ -10,10 +14,10 @@ fn main() {
     // possible solutions, please review the following blog post.
     //
     // https://dev.to/rustyoctopus/generating-static-arrays-during-compile-time-in-rust-10d8
-    let mut array_string = String::from("static TLDS:[&'static str; ");
+    let mut array_string = String::from("static TLDS: [&'static str; ");
     
     // Calculate how many TLDs we actually have in the dictionary
-    match read_lines("./dictionaries/subdomains-10000.txt") {
+    match read_lines("./dictionaries/tlds.txt") {
         Ok(lines) => {
             // We want to unwrap to make sure that we are able to fetch all TLDs
             let tlds = lines.map(|l| l.unwrap()).collect::<Vec<String>>();
@@ -27,7 +31,16 @@ fn main() {
             for line in tlds.into_iter() {
                 // Formatting some tabs (ASCII-20)
                 array_string.push_str("\u{20}\u{20}\u{20}\u{20}\"");
-                array_string.push_str(line.to_string().as_str());
+
+                let tld;
+
+                if line.chars().all(char::is_alphanumeric) {
+                    tld = line.to_string();
+                } else {
+                    tld = punycode::encode(line.to_string().as_str()).unwrap()
+                }
+
+                array_string.push_str(&tld[..]);
                 array_string.push_str("\",\r\n");
             }
 

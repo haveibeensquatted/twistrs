@@ -22,6 +22,10 @@ use crate::constants::{ASCII_LOWER, EFFECTIVE_TLDS, HOMOGLYPHS, KEYBOARD_LAYOUTS
 use std::collections::HashSet;
 use std::fmt;
 
+// Include further constants such as dictionaries that are 
+// generated during compile time.
+include!(concat!(env!("OUT_DIR"), "/dictionaries.rs"));
+
 /// Temporary type-alias over `EnrichmentError`.
 type Result<T> = std::result::Result<T, PermutationError>;
 
@@ -59,6 +63,8 @@ impl<'a> Domain<'a> {
     pub fn new(fqdn: &'a str) -> Result<Domain<'a>> {
         match EFFECTIVE_TLDS.parse_domain(fqdn) {
             Ok(parsed_domain) => {
+
+                dbg!(&parsed_domain);
                 let parts = parsed_domain
                     .root()
                     .unwrap() // TODO(jdb): Figure out how to handle this unwrap
@@ -433,11 +439,50 @@ impl<'a> Domain<'a> {
 
         Ok(Box::new(result.into_iter()))
     }
+
+    /// Permutation method that appends all TLDs as variations of the 
+    /// root domain passed. Note that this each TLD generates two
+    /// TLDs:
+    /// 
+    /// 1. TLD stripping the current TLD (e.g. `foo.com` -> `foo.it`)
+    /// 2. TLD appended to the current TLD (e.g. `foo.com` -> `foo.com.mt`)
+    pub fn tld(&self) -> Result<Box<dyn Iterator<Item = String>>> {
+        let mut result: Vec<String> = vec![];
+
+        for tld in TLDS.iter() {
+
+            // Push first TLD appending to previous TLD
+            result.push(format!(
+                "{}.{}.{}",
+                &self.domain,
+                &self.tld,
+                tld
+            ));
+
+            // Push second TLD stripping previous TLD
+            result.push(format!(
+                "{}.{}",
+                &self.domain,
+                tld
+            ));            
+        }
+
+        Ok(Box::new(result.into_iter()))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_all_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.all();
+
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
+    }    
 
     #[test]
     fn test_addition_mode() {
@@ -542,9 +587,9 @@ mod tests {
     }
 
     #[test]
-    fn test_all_mode() {
+    fn test_tld_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations = d.all();
+        let permutations = d.tld();
 
         assert!(permutations.is_ok());
         assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
