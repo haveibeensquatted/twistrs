@@ -1,4 +1,5 @@
 use phf::phf_map;
+use fancy_regex::Regex;
 use publicsuffix::List;
 
 /// Static list of lowercase ASCII characters.
@@ -152,9 +153,16 @@ pub static HOMOGLYPHS: phf::Map<char, &'static str> = phf_map! {
     'y' => "ʏýÿŷƴȳɏỿẏỵ",
     'z' => "ʐżźᴢƶẓẕⱬ"
 };
+
 pub static VOWELS: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
 
 lazy_static! {
+
+    /// IDNA filter regex used to reduce number of domain permutations
+    /// that are generated and validated.
+    /// 
+    /// The regex is taken from [dnstwist](https://github.com/elceef/dnstwist/blob/5368e465c35355c43d189b093acf41773e869d25/dnstwist.py#L213-L227).
+    pub static ref IDNA_FILTER_REGEX: Regex = Regex::new("(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\\.)+[a-zA-Z]{2,63}\\.?$)").unwrap();
 
     // @CLEANUP(jdb): Right now this is going to always incur a runtime
     //                overhead since we need to always fetch the list

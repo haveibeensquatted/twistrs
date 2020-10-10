@@ -17,10 +17,20 @@
 //!
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
-use crate::constants::{ASCII_LOWER, EFFECTIVE_TLDS, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
+use crate::constants::{
+    ASCII_LOWER, 
+    EFFECTIVE_TLDS, 
+    HOMOGLYPHS, 
+    KEYBOARD_LAYOUTS, 
+    VOWELS,
+    IDNA_FILTER_REGEX
+};
 
 use std::collections::HashSet;
 use std::fmt;
+
+use idna::punycode;
+
 
 // Include further constants such as dictionaries that are 
 // generated during compile time.
@@ -120,8 +130,10 @@ impl<'a> Domain<'a> {
         for c in ASCII_LOWER.iter() {
             result.push(format!("{}{}.{}", self.domain, c.to_string(), self.tld));
         }
+        
+        dbg!(&result);
 
-        Ok(Box::new(result.into_iter()))
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Following implementation takes inspiration from the following content:
@@ -165,8 +177,10 @@ impl<'a> Domain<'a> {
                 }
             }
         }
+        
+        dbg!(&result);
 
-        Ok(Box::new(result.into_iter()))
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method that replaces ASCII characters with multiple homoglyphs
@@ -243,7 +257,10 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Ok(Box::new(
+        dbg!(&result_first_pass);
+        dbg!(&result_second_pass);
+
+        Domain::filter_domains(Box::new(
             (&result_first_pass | &result_second_pass)
                 .into_iter()
                 .collect::<Vec<String>>()
@@ -268,7 +285,9 @@ impl<'a> Domain<'a> {
             result.push(permutation);
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method that inserts specific characters that are close to
@@ -300,8 +319,10 @@ impl<'a> Domain<'a> {
                 }
             }
         }
+        
+        dbg!(&result);
 
-        Ok(Box::new(result.into_iter()))
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method that selectively removes a character from the domain.
@@ -318,7 +339,9 @@ impl<'a> Domain<'a> {
             result.push(format!("{}{}", &self.fqdn[..i], &self.fqdn[i + 1..]));
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method that repeats characters twice provided they are
@@ -338,7 +361,9 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method similar to insertion, except that it replaces a given
@@ -372,7 +397,9 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     pub fn subdomain(&self) -> Result<Box<dyn Iterator<Item = String>>> {
@@ -392,7 +419,9 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method that swaps out characters in the domain (e.g.
@@ -418,7 +447,9 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method that swaps vowels for other vowels (e.g.
@@ -439,7 +470,9 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation mode that appends and prepends common keywords to the
@@ -482,7 +515,9 @@ impl<'a> Domain<'a> {
             ));
         }
 
-        Ok(Box::new(result.into_iter()))
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
     }
 
     /// Permutation method that appends all TLDs as variations of the 
@@ -510,6 +545,59 @@ impl<'a> Domain<'a> {
                 &self.domain,
                 tld
             ));            
+        }
+
+        dbg!(&result);
+
+        Domain::filter_domains(Box::new(result.into_iter()))
+    }
+
+    /// Utility function that filters an iterator of domains that are valid. This
+    /// is performed in a two-pass validation:
+    /// 
+    /// 1st pass - validate that the domain is punycode decodable by splitting the 
+    /// domain into parts ("."), removing any "xn--" prefixes, and punycode decoding
+    /// the part.
+    /// 
+    /// 2nd pass - simple regular expression pass to see if the resulting domains
+    /// are indeed valid domains.
+    pub fn filter_domains(permutations: Box<dyn Iterator<Item = String>>) -> Result<Box<dyn Iterator<Item = String>>> {
+        let mut punycode_domains: HashSet<String> = HashSet::new();
+
+        // First filter pass for domains that can be punycode decoded
+        for permutation in permutations {       
+            // As per punycode documentation, any xn-- needs to be removed
+            let stripped_permutation = permutation.replace("xn--", "");
+
+            let is_decodable = &stripped_permutation
+                                .split(".")
+                                .all(|part| {
+                                    match punycode::decode(&part) {
+                                        Some(_) => true,
+                                        None    => false,
+                                    }
+                                });
+
+            if *is_decodable {
+                punycode_domains.insert(permutation);
+            }
+        }
+       
+
+        let mut result: Vec<String> = vec![];
+
+        // Second filter pass for domains that are valid
+        for domain in punycode_domains {
+            match IDNA_FILTER_REGEX.is_match(&domain) {
+                Ok(is_matched) => {
+                    if is_matched {
+                        result.push(domain);
+                    }
+                },
+                Err(_) => {
+                    dbg!(&domain);
+                },
+            }
         }
 
         Ok(Box::new(result.into_iter()))
@@ -647,5 +735,35 @@ mod tests {
 
         assert!(permutations.is_ok());
         assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
+    }
+
+    #[test]
+    fn test_domain_idna_filtering() {
+        // Examples taken from IDNA Punycode RFC:
+        // https://tools.ietf.org/html/rfc3492#section-7.1
+        let valid_idns = vec![
+            // List of invalid domains
+            String::from("i1baa7eci9glrd9b2ae1bj0hfcgg6iyaf8o0a1dig0cd"),
+            String::from("4dbcagdahymbxekheh6e0a7fei0b"),
+            String::from("rpublique-numrique-bwbm"),
+            String::from("fiqs8s"),
+            String::from("google.com.acadmie-franaise-npb1a"),
+            String::from("acadmie-franaise-npb1a-google.com"),
+
+            // List of valid domains
+            String::from("acadmie-franaise-npb1a"),
+            String::from("google.com"),
+            String::from("phishdeck.com"),
+            String::from("xn--wgbl6a.icom.museum"),
+            String::from("xn--80aaxgrpt.icom.museum"),
+        ];
+
+        let filtered_domains: Vec<String> = Domain::filter_domains(Box::new(valid_idns.into_iter()))
+                                                .unwrap()
+                                                .collect();
+
+        dbg!(&filtered_domains);
+
+        assert_eq!(filtered_domains.len(), 5);
     }
 }

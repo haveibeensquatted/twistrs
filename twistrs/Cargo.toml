@@ -16,6 +16,8 @@ async-smtp = "0.3.4"
 async-native-tls = "0.3.3"
 futures = "0.3"
 tokio  = { version = "0.2.22", features = ["dns"] }
+fancy-regex = "0.4.0"
+idna = "0.2.0"
 
 [build-dependencies]
 punycode = "0.4.1"
