@@ -14,7 +14,9 @@ fn main() {
     // possible solutions, please review the following blog post.
     //
     // https://dev.to/rustyoctopus/generating-static-arrays-during-compile-time-in-rust-10d8
-    let mut array_string = String::from("static TLDS: [&'static str; ");
+    let mut dicionary_output = String::from("");
+    let mut tld_array_string = String::from("static TLDS: [&'static str; ");
+    let mut keywords_array_string = String::from("static KEYWORDS: [&'static str; ");
     
     // Calculate how many TLDs we actually have in the dictionary
     match read_lines("./dictionaries/tlds.txt") {
@@ -24,13 +26,13 @@ fn main() {
 
             // Finalize the variable signature and break into newline to 
             // start populating the TLDs
-            array_string.push_str(&tlds.len().to_string());
-            array_string.push_str("] = [\r\n");
+            tld_array_string.push_str(&tlds.len().to_string());
+            tld_array_string.push_str("] = [\r\n");
 
             // Start populating TLD contents
             for line in tlds.into_iter() {
                 // Formatting some tabs (ASCII-20)
-                array_string.push_str("\u{20}\u{20}\u{20}\u{20}\"");
+                tld_array_string.push_str("\u{20}\u{20}\u{20}\u{20}\"");
 
                 let tld;
 
@@ -40,22 +42,62 @@ fn main() {
                     tld = punycode::encode(line.to_string().as_str()).unwrap()
                 }
 
-                array_string.push_str(&tld[..]);
-                array_string.push_str("\",\r\n");
+                tld_array_string.push_str(&tld[..]);
+                tld_array_string.push_str("\",\r\n");
             }
 
             // Close off variable signature
-            array_string.push_str("];\r\n");
-
-            // Write out contents to the final Rust file artifact
-            let out_dir = env::var("OUT_DIR").unwrap();
-            let dest_path = Path::new(&out_dir).join("dictionaries.rs");
-            fs::write(&dest_path, array_string).unwrap();            
+            tld_array_string.push_str("];\r\n");     
         },
         Err(e) => panic!(format!(
             "unable to build library due to missing dictionary file(s): {}", e
         ))
     }
+
+    match read_lines("./dictionaries/keywords.txt") {
+        Ok(lines) => {
+            // We want to unwrap to make sure that we are able to fetch all TLDs
+            let tlds = lines.map(|l| l.unwrap()).collect::<Vec<String>>();
+
+            // Finalize the variable signature and break into newline to 
+            // start populating the TLDs
+            keywords_array_string.push_str(&tlds.len().to_string());
+            keywords_array_string.push_str("] = [\r\n");
+
+            // Start populating TLD contents
+            for line in tlds.into_iter() {
+                // Formatting some tabs (ASCII-20)
+                keywords_array_string.push_str("\u{20}\u{20}\u{20}\u{20}\"");
+
+                let tld;
+
+                if line.chars().all(char::is_alphanumeric) {
+                    tld = line.to_string();
+                } else {
+                    tld = punycode::encode(line.to_string().as_str()).unwrap()
+                }
+
+                keywords_array_string.push_str(&tld[..]);
+                keywords_array_string.push_str("\",\r\n");
+            }
+
+            // Close off variable signature
+            keywords_array_string.push_str("];\r\n");
+        },
+        Err(e) => panic!(format!(
+            "unable to build library due to missing dictionary file(s): {}", e
+        ))
+    }
+    
+    // Start building the final output
+    dicionary_output.push_str(&tld_array_string);
+    dicionary_output.push_str("\n");
+    dicionary_output.push_str(&keywords_array_string);
+
+    // Write out contents to the final Rust file artifact
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let dest_path = Path::new(&out_dir).join("dictionaries.rs");
+    fs::write(&dest_path, dicionary_output).unwrap();       
 }
 
 // The output is wrapped in a Result to allow matching on errors
