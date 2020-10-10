@@ -106,8 +106,8 @@ impl<'a> Domain<'a> {
             .and_then(|i| Ok(i.chain(self.replacement()?)))
             .and_then(|i| Ok(i.chain(self.subdomain()?)))
             .and_then(|i| Ok(i.chain(self.transposition()?)))
-            .and_then(|i| Ok(i.chain(self.vowel_swap()?)))?;
-            .and_then(|i| Ok(i.chain(self.keyword()?)))?;
+            .and_then(|i| Ok(i.chain(self.vowel_swap()?)))
+            .and_then(|i| Ok(i.chain(self.keyword()?)))
             .and_then(|i| Ok(i.chain(self.tld()?)))?;
 
         Ok(Box::new(permutations))
@@ -457,28 +457,28 @@ impl<'a> Domain<'a> {
                 "{}-{}.{}",
                 &self.domain,
                 keyword,
-                &self.fqdn
+                &self.tld
             ));
 
             result.push(format!(
                 "{}{}.{}",
                 &self.domain,
                 keyword,
-                &self.fqdn
+                &self.tld
             ));
 
             result.push(format!(
                 "{}-{}.{}",
                 keyword,
                 &self.domain,
-                &self.fqdn
+                &self.tld
             ));
 
             result.push(format!(
                 "{}{}.{}",
                 keyword,
                 &self.domain,
-                &self.fqdn
+                &self.tld
             ));
         }
 
