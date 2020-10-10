@@ -107,6 +107,8 @@ impl<'a> Domain<'a> {
             .and_then(|i| Ok(i.chain(self.subdomain()?)))
             .and_then(|i| Ok(i.chain(self.transposition()?)))
             .and_then(|i| Ok(i.chain(self.vowel_swap()?)))?;
+            .and_then(|i| Ok(i.chain(self.keyword()?)))?;
+            .and_then(|i| Ok(i.chain(self.tld()?)))?;
 
         Ok(Box::new(permutations))
     }
@@ -447,7 +449,7 @@ impl<'a> Domain<'a> {
     /// 2. Prepend keyword (e.g. `foo.com` -> `wordfoo.com`)
     /// 3. Append keyword and dash (e.g. `foo.com` -> `foo-word.com`)
     /// 4. Append keyword and dash (e.g. `foo.com` -> `fooword.com`)
-    pub fn keywords(&self) -> Result<Box<dyn Iterator<Item = String>>> {
+    pub fn keyword(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
 
         for keyword in KEYWORDS.iter() {
@@ -632,7 +634,7 @@ mod tests {
     #[test]
     fn test_keyword_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations = d.keywords();
+        let permutations = d.keyword();
 
         assert!(permutations.is_ok());
         assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
