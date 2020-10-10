@@ -440,6 +440,49 @@ impl<'a> Domain<'a> {
         Ok(Box::new(result.into_iter()))
     }
 
+    /// Permutation mode that appends and prepends common keywords to the
+    /// domain in the following order:
+    /// 
+    /// 1. Prepend keyword and dash (e.g. `foo.com` -> `word-foo.com`)
+    /// 2. Prepend keyword (e.g. `foo.com` -> `wordfoo.com`)
+    /// 3. Append keyword and dash (e.g. `foo.com` -> `foo-word.com`)
+    /// 4. Append keyword and dash (e.g. `foo.com` -> `fooword.com`)
+    pub fn keywords(&self) -> Result<Box<dyn Iterator<Item = String>>> {
+        let mut result: Vec<String> = vec![];
+
+        for keyword in KEYWORDS.iter() {
+            result.push(format!(
+                "{}-{}.{}",
+                &self.domain,
+                keyword,
+                &self.fqdn
+            ));
+
+            result.push(format!(
+                "{}{}.{}",
+                &self.domain,
+                keyword,
+                &self.fqdn
+            ));
+
+            result.push(format!(
+                "{}-{}.{}",
+                keyword,
+                &self.domain,
+                &self.fqdn
+            ));
+
+            result.push(format!(
+                "{}{}.{}",
+                keyword,
+                &self.domain,
+                &self.fqdn
+            ));
+        }
+
+        Ok(Box::new(result.into_iter()))
+    }
+
     /// Permutation method that appends all TLDs as variations of the 
     /// root domain passed. Note that this each TLD generates two
     /// TLDs:
@@ -581,6 +624,15 @@ mod tests {
     fn test_vowel_swap_mode() {
         let d = Domain::new("www.example.com").unwrap();
         let permutations = d.vowel_swap();
+
+        assert!(permutations.is_ok());
+        assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
+    }
+
+    #[test]
+    fn test_keyword_mode() {
+        let d = Domain::new("www.example.com").unwrap();
+        let permutations = d.keywords();
 
         assert!(permutations.is_ok());
         assert!(permutations.unwrap().collect::<Vec<String>>().len() > 0);
