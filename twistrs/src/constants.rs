@@ -2,8 +2,57 @@ use phf::phf_map;
 use fancy_regex::Regex;
 use publicsuffix::List;
 
+use hyper::Client;
+use hyper::client::HttpConnector;
+
+lazy_static! {
+
+    /// IDNA filter regex used to reduce number of domain permutations
+    /// that are generated and validated.
+    /// 
+    /// The regex is taken from [dnstwist](https://github.com/elceef/dnstwist/blob/5368e465c35355c43d189b093acf41773e869d25/dnstwist.py#L213-L227).
+    pub static ref IDNA_FILTER_REGEX: Regex = Regex::new("(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\\.)+[a-zA-Z]{2,63}\\.?$)").unwrap();
+
+    // @CLEANUP(jdb): Right now this is going to always incur a runtime
+    //                overhead since we need to always fetch the list
+    //                over HTTP. In the future, this should be kept lo-
+    //                cally and call List::from_str instead.
+    //
+    //                At first we used List::from_path and pointed to a
+    //                local .dat file containing the TLDs, however giv-
+    //                en that this is a library, this is not the right
+    //                way to go about it.
+    //
+    //  Ref: https://docs.rs/publicsuffix/1.5.4/publicsuffix/struct.List.html
+    pub static ref EFFECTIVE_TLDS: List =
+        List::fetch().unwrap();
+
+    pub static ref KEYBOARD_LAYOUTS: Vec<&'static phf::Map<char, &'static str>> = vec![
+        &QWERTY_KEYBOARD_LAYOUT,
+        &QWERTZ_KEYBOARD_LAYOUT,
+        &AZERTY_KEYBOARD_LAYOUT
+    ];
+
+
+    /// Global HTTP client we use throughout the library
+    pub static ref HTTP_CLIENT: Client<HttpConnector> = Client::builder()
+        .pool_idle_timeout(std::time::Duration::from_secs(30))
+        .http2_only(false)
+        .http1_read_buf_exact_size(1024)
+        .retry_canceled_requests(false)
+        .build(http_connector());
+}
+
+/// Internal helper to create an HTTP Connector
+fn http_connector() -> HttpConnector {
+    let mut c = HttpConnector::new();
+    c.set_recv_buffer_size(Some(1024));
+    c.set_connect_timeout(Some(std::time::Duration::new(5, 0)));
+    c.enforce_http(true);
+    c 
+}
+
 /// Static list of lowercase ASCII characters.
-// Stack allocate these at compile time
 pub static ASCII_LOWER: [char; 26] = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
     't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -155,32 +204,3 @@ pub static HOMOGLYPHS: phf::Map<char, &'static str> = phf_map! {
 };
 
 pub static VOWELS: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
-
-lazy_static! {
-
-    /// IDNA filter regex used to reduce number of domain permutations
-    /// that are generated and validated.
-    /// 
-    /// The regex is taken from [dnstwist](https://github.com/elceef/dnstwist/blob/5368e465c35355c43d189b093acf41773e869d25/dnstwist.py#L213-L227).
-    pub static ref IDNA_FILTER_REGEX: Regex = Regex::new("(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\\.)+[a-zA-Z]{2,63}\\.?$)").unwrap();
-
-    // @CLEANUP(jdb): Right now this is going to always incur a runtime
-    //                overhead since we need to always fetch the list
-    //                over HTTP. In the future, this should be kept lo-
-    //                cally and call List::from_str instead.
-    //
-    //                At first we used List::from_path and pointed to a
-    //                local .dat file containing the TLDs, however giv-
-    //                en that this is a library, this is not the right
-    //                way to go about it.
-    //
-    //  Ref: https://docs.rs/publicsuffix/1.5.4/publicsuffix/struct.List.html
-    pub static ref EFFECTIVE_TLDS: List =
-        List::fetch().unwrap();
-
-    pub static ref KEYBOARD_LAYOUTS: Vec<&'static phf::Map<char, &'static str>> = vec![
-        &QWERTY_KEYBOARD_LAYOUT,
-        &QWERTZ_KEYBOARD_LAYOUT,
-        &AZERTY_KEYBOARD_LAYOUT
-    ];
-}
