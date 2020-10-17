@@ -1,7 +1,7 @@
 [package]
 name = "twistrs"
-version = "0.1.3-beta"
-description = "A domain name permutation and enumeration library"
+version = "0.2.0-beta"
+description = "An asynchronous domain name permutation and enumeration library."
 license = "MIT"
 repository = "https://github.com/JuxhinDB/twistrs"
 documentation  = "https://docs.rs/crate/twistrs"
@@ -18,6 +18,7 @@ futures = "0.3"
 tokio  = { version = "0.2.22", features = ["dns"] }
 fancy-regex = "0.4.0"
 idna = "0.2.0"
+hyper = "0.13.8"
 
 [build-dependencies]
 punycode = "0.4.1"

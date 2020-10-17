@@ -1,5 +1,19 @@
 # CHANGELOG.md
 
+## 0.1.3-beta (2020-10-17)
+
+Security:
+
+  - N/A
+
+Features:
+
+  - Implement HTTP Banner enrichment method.
+
+Fix:
+
+  - N/A
+
 ## 0.1.3-beta (2020-10-10)
 
 Security:
