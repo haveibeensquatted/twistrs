@@ -5,7 +5,7 @@ authors = ["Juxhin Dyrmishi Brigjaj <juxhin@phishdeck.com>"]
 edition = "2018"
 
 [dependencies]
-twistrs = "0.1.3-beta"
+twistrs = "0.2.0-beta"
 prost = "0.6.1"
 tonic = {version="0.2.0",features = ["tls"]}
 tokio = {version="0.2.18",features = ["stream", "macros"]}
