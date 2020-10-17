@@ -520,26 +520,12 @@ impl<'a> Domain<'a> {
         Domain::filter_domains(Box::new(result.into_iter()))
     }
 
-    /// Permutation method that appends all TLDs as variations of the 
-    /// root domain passed. Note that this each TLD generates two
-    /// TLDs:
-    /// 
-    /// 1. TLD stripping the current TLD (e.g. `foo.com` -> `foo.it`)
-    /// 2. TLD appended to the current TLD (e.g. `foo.com` -> `foo.com.mt`)
+    /// Permutation method that replaces all TLDs as variations of the 
+    /// root domain passed.
     pub fn tld(&self) -> Result<Box<dyn Iterator<Item = String>>> {
         let mut result: Vec<String> = vec![];
 
         for tld in TLDS.iter() {
-
-            // Push first TLD appending to previous TLD
-            result.push(format!(
-                "{}.{}.{}",
-                &self.domain,
-                &self.tld,
-                tld
-            ));
-
-            // Push second TLD stripping previous TLD
             result.push(format!(
                 "{}.{}",
                 &self.domain,

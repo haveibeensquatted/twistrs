@@ -1,6 +1,6 @@
 [package]
 name = "twistrs"
-version = "0.2.0-beta"
+version = "0.2.1-beta"
 description = "An asynchronous domain name permutation and enumeration library."
 license = "MIT"
 repository = "https://github.com/JuxhinDB/twistrs"

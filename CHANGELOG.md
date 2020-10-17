@@ -1,6 +1,20 @@
 # CHANGELOG.md
 
-## 0.1.3-beta (2020-10-17)
+## 0.2.1-beta (2020-10-17)
+
+Security:
+
+  - N/A
+
+Features:
+
+  - N/A
+
+Fix:
+
+  - Updated TLD permutation method to only perform TLD replacement due to causing noisy results.
+
+## 0.2.0-beta (2020-10-17)
 
 Security:
 
