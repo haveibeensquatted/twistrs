@@ -88,7 +88,7 @@ async fn main() {
 - [x] DNS lookup
 - [x] MX parsing
 - [ ] SMTP Banner
-- [ ] HTTP Banner
+- [x] HTTP Banner
 - [ ] GeoIP Lookup (Cached)
 - [ ] WhoIs Lookup
 
