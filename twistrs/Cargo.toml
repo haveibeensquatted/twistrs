@@ -18,6 +18,7 @@ futures = "0.3"
 tokio  = { version = "0.2.22", features = ["dns"] }
 fancy-regex = "0.4.0"
 idna = "0.2.0"
+hyper = "0.13.8"
 
 [build-dependencies]
 punycode = "0.4.1"
