@@ -27,7 +27,7 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let domain = Domain::new("google.com").unwrap();
-//!     let permutations = domain.addition().unwrap();
+//!     let permutations = domain.addition();
 //!
 //!     let (tx, mut rx) = mpsc::channel(1000);
 //!
