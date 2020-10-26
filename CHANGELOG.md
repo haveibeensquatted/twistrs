@@ -1,5 +1,20 @@
 # CHANGELOG.md
 
+## 0.2.2-beta (2020-10-26)
+
+Security:
+
+  - N/A
+
+Features:
+
+  - Implemented new GeoIP cached lookups.
+
+Fix:
+
+  - N/A
+
+
 ## 0.2.1-beta (2020-10-17)
 
 Security:

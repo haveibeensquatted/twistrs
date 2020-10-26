@@ -16,7 +16,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Checkout sub-modules
+      uses: textbook/git-checkout-submodule-action@master
+      with:
+        remote: true    
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all-features --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --all-features --verbose
