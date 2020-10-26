@@ -68,7 +68,6 @@ impl<'a> Domain<'a> {
     pub fn new(fqdn: &'a str) -> Result<Domain<'a>> {
         match EFFECTIVE_TLDS.parse_domain(fqdn) {
             Ok(parsed_domain) => {
-                dbg!(&parsed_domain);
                 let parts = parsed_domain
                     .root()
                     .unwrap() // TODO(jdb): Figure out how to handle this unwrap

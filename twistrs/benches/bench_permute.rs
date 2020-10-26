@@ -3,51 +3,51 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use twistrs::permutate::Domain;
 
 fn bitsquatting(domain: &Domain) {
-    domain.bitsquatting().unwrap().for_each(drop)
+    domain.bitsquatting().for_each(drop)
 }
 
 fn homoglyph(domain: &Domain) {
-    domain.homoglyph().unwrap().for_each(drop)
+    domain.homoglyph().for_each(drop)
 }
 
 fn hyphentation(domain: &Domain) {
-    domain.hyphentation().unwrap().for_each(drop)
+    domain.hyphentation().for_each(drop)
 }
 
 fn insertion(domain: &Domain) {
-    domain.insertion().unwrap().for_each(drop)
+    domain.insertion().for_each(drop)
 }
 
 fn omission(domain: &Domain) {
-    domain.omission().unwrap().for_each(drop)
+    domain.omission().for_each(drop)
 }
 
 fn repetition(domain: &Domain) {
-    domain.repetition().unwrap().for_each(drop)
+    domain.repetition().for_each(drop)
 }
 
 fn replacement(domain: &Domain) {
-    domain.replacement().unwrap().for_each(drop)
+    domain.replacement().for_each(drop)
 }
 
 fn subdomain(domain: &Domain) {
-    domain.subdomain().unwrap().for_each(drop)
+    domain.subdomain().for_each(drop)
 }
 
 fn transposition(domain: &Domain) {
-    domain.transposition().unwrap().for_each(drop)
+    domain.transposition().for_each(drop)
 }
 
 fn vowel_swap(domain: &Domain) {
-    domain.vowel_swap().unwrap().for_each(drop)
+    domain.vowel_swap().for_each(drop)
 }
 
 fn keyword(domain: &Domain) {
-    domain.keyword().unwrap().for_each(drop)
+    domain.keyword().for_each(drop)
 }
 
 fn tld(domain: &Domain) {
-    domain.tld().unwrap().for_each(drop)
+    domain.tld().for_each(drop)
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
