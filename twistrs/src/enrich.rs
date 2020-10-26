@@ -412,7 +412,7 @@ mod tests {
         let domain_metadata = DomainMetadata::new(String::from("example.com")).dns_resolvable().await.unwrap();
 
         // MaxmindDB CSV entry for example.com subnet, prone to failure but saves space
-        let reader = maxminddb::Reader::open_readfile("data/tests/GeoLite2-City.mmdb").unwrap();
+        let reader = maxminddb::Reader::open_readfile("data/MaxMind-DB/test-data/GeoIP2-City-Test.mmdb").unwrap();
         
         assert!(domain_metadata.geoip_lookup(&reader).await.is_ok());
     }        

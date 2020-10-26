@@ -1,0 +1,3 @@
+[submodule "twistrs/data/MaxMind-DB"]
+	path = twistrs/data/MaxMind-DB
+	url = https://github.com/maxmind/MaxMind-DB
