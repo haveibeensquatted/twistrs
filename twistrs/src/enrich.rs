@@ -79,6 +79,7 @@ pub struct DomainMetadata {
     /// HTTP server banner data extracted.
     pub http_banner: Option<String>,
 
+    #[cfg(feature = "geoip_lookup")]
     pub geo_ip_lookups: Option<Vec<(IpAddr, String)>>,
 }
 

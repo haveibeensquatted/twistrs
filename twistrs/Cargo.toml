@@ -8,6 +8,13 @@ documentation  = "https://docs.rs/crate/twistrs"
 authors = ["Juxhin Dyrmishi Brigjaj <juxhin@phishdeck.com>"]
 edition = "2018"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.playground]
+features = ["full"]
+
 [features]
 geoip_lookup = [ "maxminddb" ]
 
