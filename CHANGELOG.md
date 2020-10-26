@@ -1,5 +1,20 @@
 # CHANGELOG.md
 
+## 0.3.0-beta (2020-10-26)
+
+Security:
+
+  - N/A
+
+Features:
+
+  - N/A
+
+Fix:
+
+  - Updated interface for permutation module to return [`impl Iterator`](https://github.com/JuxhinDB/twistrs/pull/19) which is a breaking change.
+
+
 ## 0.2.2-beta (2020-10-26)
 
 Security:
