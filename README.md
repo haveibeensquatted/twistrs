@@ -109,7 +109,7 @@ A: Currently the library (for ease-of-use) bakes the dictionaries into the final
 
 Q: How does the cached GeoIP lookup work?
 
-A: Currently requires the client to supply their own [`maxminddb`] reader and dataset. Twistrs at this point in time
+A: Currently requires the client to supply their own [`maxminddb`](https://docs.rs/maxminddb/0.15.0/maxminddb/struct.Reader.html) reader and dataset. Twistrs at this point in time
 is mostly an auxillliary wrapper to streamline processing of the DomainMetadata results. For more information 
 
 ## License
