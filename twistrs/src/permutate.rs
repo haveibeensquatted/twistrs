@@ -34,7 +34,7 @@ use idna::punycode;
 
 // Include further constants such as dictionaries that are 
 // generated during compile time.
-include!(concat!(env!("OUT_DIR"), "/dictionaries.rs"));
+include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
 /// Temporary type-alias over `EnrichmentError`.
 type Result<T> = std::result::Result<T, PermutationError>;

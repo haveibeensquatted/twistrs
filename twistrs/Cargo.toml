@@ -8,6 +8,9 @@ documentation  = "https://docs.rs/crate/twistrs"
 authors = ["Juxhin Dyrmishi Brigjaj <juxhin@phishdeck.com>"]
 edition = "2018"
 
+[features]
+geoip_lookup = [ "maxminddb" ]
+
 [dependencies]
 publicsuffix = "1.5"
 lazy_static  = "1.4.0"
@@ -15,10 +18,11 @@ phf	         = { version = "0.8.0", features = ["macros"] }
 async-smtp = "0.3.4"
 async-native-tls = "0.3.3"
 futures = "0.3"
-tokio  = { version = "0.2.22", features = ["dns"] }
+tokio  = { version = "0.2.22", features = ["dns", "macros"] }
 fancy-regex = "0.4.0"
 idna = "0.2.0"
 hyper = "0.13.8"
+maxminddb = { version = "0.15.0", optional = true}
 
 [build-dependencies]
 punycode = "0.4.1"
