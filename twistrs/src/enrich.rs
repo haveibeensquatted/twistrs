@@ -258,7 +258,31 @@ impl DomainMetadata {
         }
     }
 
+    /// Asynchronous cached GeoIP lookup. Interface deviates from the usual enrichment
+    /// interfaces and requires the callee to pass a [`maxminddb::Reader`](https://docs.rs/maxminddb/0.15.0/maxminddb/struct.Reader.html)
+    /// to perform the lookup through.
     /// 
+    /// The only reason you would want to do this, is to be able to get back a `DomainMetadata`
+    /// to then process as you would with other enrichment methods. Internally the lookup will 
+    /// try to stitch together the City, Country & Continent that the [`IpAddr`](https://doc.rust-lang.org/std/net/enum.IpAddr.html) 
+    /// resolves to.
+    /// 
+    /// ```
+    /// use maxminddb::Reader;    
+    /// use twistrs::enrich::DomainMetadata;
+    /// 
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let reader = maxminddb::Reader::open_readfile("data/tests/GeoLite2-City.mmdb").unwrap();
+    ///     let domain_metadata = DomainMetadata::new(String::from("www.phishdeck.com"));
+    ///     println!("{:?}", domain_metadata.geoip_lookup(&reader).await);
+    /// }
+    /// ```
+    /// 
+    /// ### Panics
+    /// 
+    /// Currently assumes that if a City/Country/Continent is found, that the English ("en") 
+    /// result is available.
     #[cfg(feature = "geoip_lookup")]
     pub async fn geoip_lookup(&self, geoip: &maxminddb::Reader<Vec<u8>>) -> Result<DomainMetadata> {
         let mut result: Vec<(IpAddr, String)> = Vec::new();
