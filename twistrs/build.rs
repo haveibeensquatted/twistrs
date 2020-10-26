@@ -6,7 +6,7 @@ use std::{env, fs, path::Path};
 
 
 fn main() {
-    // The following build script converts a number of dictionaries
+    // The following build script converts a number of data assets
     // to be embedded directly into the libraries final binaries
     // without incurring any runtime costs.
     // 
@@ -15,11 +15,12 @@ fn main() {
     //
     // https://dev.to/rustyoctopus/generating-static-arrays-during-compile-time-in-rust-10d8
     let mut dicionary_output = String::from("");
+
     let mut tld_array_string = String::from("static TLDS: [&'static str; ");
     let mut keywords_array_string = String::from("static KEYWORDS: [&'static str; ");
     
     // Calculate how many TLDs we actually have in the dictionary
-    match read_lines("./dictionaries/tlds.txt") {
+    match read_lines("./data/tlds.txt") {
         Ok(lines) => {
             // We want to unwrap to make sure that we are able to fetch all TLDs
             let tlds = lines.map(|l| l.unwrap()).collect::<Vec<String>>();
@@ -54,7 +55,7 @@ fn main() {
         ))
     }
 
-    match read_lines("./dictionaries/keywords.txt") {
+    match read_lines("./data/keywords.txt") {
         Ok(lines) => {
             // We want to unwrap to make sure that we are able to fetch all TLDs
             let tlds = lines.map(|l| l.unwrap()).collect::<Vec<String>>();
@@ -96,7 +97,7 @@ fn main() {
 
     // Write out contents to the final Rust file artifact
     let out_dir = env::var("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("dictionaries.rs");
+    let dest_path = Path::new(&out_dir).join("data.rs");
     fs::write(&dest_path, dicionary_output).unwrap();       
 }
 
