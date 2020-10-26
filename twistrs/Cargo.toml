@@ -34,3 +34,12 @@ itertools = "0.9.0"
 
 [build-dependencies]
 punycode = "0.4.1"
+
+[dev-dependencies]
+criterion = "0.3"
+tokio  = { version = "0.2.22", features = ["macros"] }
+
+[[bench]]
+name = "permute"
+harness = false
+path = "benches/bench_permute.rs"
