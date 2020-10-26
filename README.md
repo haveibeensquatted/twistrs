@@ -89,7 +89,7 @@ async fn main() {
 - [x] MX parsing
 - [ ] SMTP Banner
 - [x] HTTP Banner
-- [ ] GeoIP Lookup (Cached)
+- [x] GeoIP Lookup (Cached)
 - [ ] WhoIs Lookup
 
 #### Miscellaneous
@@ -106,6 +106,11 @@ async fn main() {
 Q: If I want to use a different set of dictionaries to the one provided out of the box by the libary, how can I achieve that?
 
 A: Currently the library (for ease-of-use) bakes the dictionaries into the final binary through a build script. To customise this, you would need to update the [dictionary files](./twistrs/dictionaries/) and compile the library using `cargo b` or `cargo b --release`. You can also reference the library in your own Cargo.toml, pointing to a local copy.
+
+Q: How does the cached GeoIP lookup work?
+
+A: Currently requires the client to supply their own [`maxminddb`] reader and dataset. Twistrs at this point in time
+is mostly an auxillliary wrapper to streamline processing of the DomainMetadata results. For more information 
 
 ## License
 
