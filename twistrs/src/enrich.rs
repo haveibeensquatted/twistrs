@@ -66,7 +66,7 @@ impl fmt::Display for EnrichmentError {
 /// **N.B**—there will be cases where a single
 /// domain can have multiple DomainMetadata
 /// instancees associated with it.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DomainMetadata {
     /// The domain that is being enriched.
     pub fqdn: String,
@@ -104,14 +104,10 @@ pub struct SmtpMetadata {
 impl DomainMetadata {
     /// Create a new empty state for a particular FQDN.
     pub fn new(fqdn: String) -> DomainMetadata {
-        DomainMetadata {
-            fqdn: fqdn,
-            ips: None,
-            smtp: None,
-            http_banner: None,
-            geo_ip_lookups: None,            
-            who_is_lookup: None,            
-        }
+        let mut d = DomainMetadata::default();
+        d.fqdn = fqdn;
+
+        d
     }
 
     /// Asynchronous DNS resolution on a DomainMetadata instance.
@@ -183,24 +179,10 @@ impl DomainMetadata {
                     //                the `fn kind` function to be able to handle error variants. 
                     //                
                     //                Try to figure out if there is another way to handle them.
-                    Err(_) => Ok(DomainMetadata {
-                        fqdn: self.fqdn.clone(),
-                        ips: None,
-                        smtp: None,
-                        http_banner: None,
-                        who_is_lookup: None,            
-                        geo_ip_lookups: None,            
-                    }),
+                    Err(_) => Ok(DomainMetadata::new(self.fqdn.clone())),
                 }
             }
-            Err(_) => Ok(DomainMetadata {
-                fqdn: self.fqdn.clone(),
-                ips: None,
-                smtp: None,
-                http_banner: None,
-                geo_ip_lookups: None,            
-                who_is_lookup: None,            
-            }),
+            Err(_) => Ok(DomainMetadata::new(self.fqdn.clone())),
         }
     }
 
@@ -252,24 +234,10 @@ impl DomainMetadata {
                             who_is_lookup: None,            
                         })
                     },
-                    None => Ok(DomainMetadata {
-                        fqdn: self.fqdn.clone(),
-                        ips: None,
-                        smtp: None,
-                        http_banner: None,
-                        geo_ip_lookups: None,            
-                        who_is_lookup: None,            
-                    }),
+                    None => Ok(DomainMetadata::new(self.fqdn.clone())),
                 }
             },
-            Err(_) => Ok(DomainMetadata {
-                fqdn: self.fqdn.clone(),
-                ips: None,
-                smtp: None,
-                http_banner: None,
-                geo_ip_lookups: None,            
-                who_is_lookup: None,            
-            }),                
+            Err(_) => Ok(DomainMetadata::new(self.fqdn.clone())),                
         }
     }
 
@@ -344,38 +312,17 @@ impl DomainMetadata {
                     }
                 }
 
-                Ok(DomainMetadata {
-                    fqdn: self.fqdn.clone(),
-                    ips: None,
-                    smtp: None,
-                    http_banner: None,
-                    geo_ip_lookups: Some(result),            
-                    who_is_lookup: None,            
-                })                
+                Ok(DomainMetadata::new(self.fqdn.clone()))                
             },
             None => {
-                Ok(DomainMetadata {
-                    fqdn: self.fqdn.clone(),
-                    ips: None,
-                    smtp: None,
-                    http_banner: None,
-                    geo_ip_lookups: None,            
-                    who_is_lookup: None,            
-                })
+                Ok(DomainMetadata::new(self.fqdn.clone()))
             },
         }  
     }
 
     #[cfg(feature = "whois_lookup")]
     pub async fn whois_lookup(&self) -> Result<DomainMetadata> {
-        let mut result = DomainMetadata {
-            fqdn: self.fqdn.clone(),
-            ips: None,
-            smtp: None,
-            http_banner: None,
-            geo_ip_lookups: None,            
-            who_is_lookup: None,            
-        };
+        let mut result = DomainMetadata::new(self.fqdn.clone());
 
         match WhoIsLookupOptions::from_string(&self.fqdn) {
             Ok(mut lookup_options) => {
@@ -471,7 +418,7 @@ mod tests {
     #[tokio::test]
     #[cfg(feature = "whois_lookup")]
     async fn test_whois_lookup() {
-        let domain_metadata = DomainMetadata::new(String::from("gig.com"));
+        let domain_metadata = DomainMetadata::new(String::from("example.com"));
         assert!(domain_metadata.whois_lookup().await.is_ok());
     }     
 }
