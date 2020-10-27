@@ -1,4 +1,4 @@
-# Twistr — ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) ![docs](https://docs.rs/twistrs/badge.svg) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) 
+# Twistr — ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) [![docs](https://docs.rs/twistrs/badge.svg)](https://docs.rs/twistrs/) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) 
 
 <img align="left" width="20%" height="20%" src="res/logo-x1024.png">
 
