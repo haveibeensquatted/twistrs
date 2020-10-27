@@ -243,7 +243,8 @@ impl DomainMetadata {
 
     /// Asynchronous cached GeoIP lookup. Interface deviates from the usual enrichment
     /// interfaces and requires the callee to pass a [`maxminddb::Reader`](https://docs.rs/maxminddb/0.15.0/maxminddb/struct.Reader.html)
-    /// to perform the lookup through.
+    /// to perform the lookup through. Internally, the maxminddb call is blocking and
+    /// may result in performance drops, however the lookups are in-memory.
     /// 
     /// The only reason you would want to do this, is to be able to get back a `DomainMetadata`
     /// to then process as you would with other enrichment methods. Internally the lookup will 
@@ -266,6 +267,10 @@ impl DomainMetadata {
     /// 
     /// Currently assumes that if a City/Country/Continent is found, that the English ("en") 
     /// result is available.
+    /// 
+    /// ### Features
+    /// 
+    /// This function requires the `geoip_lookup` feature toggled.
     #[cfg(feature = "geoip_lookup")]
     pub async fn geoip_lookup(&self, geoip: &maxminddb::Reader<Vec<u8>>) -> Result<DomainMetadata> {
         let mut result: Vec<(IpAddr, String)> = Vec::new();
@@ -320,6 +325,23 @@ impl DomainMetadata {
         }  
     }
 
+    /// Asyncrhonous WhoIs lookup using cached WhoIs server config. Note that 
+    /// the internal lookups are not async and so this should be considered
+    /// a heavy/slow call.
+    /// 
+    /// ```
+    /// use twistrs::enrich::DomainMetadata;
+    /// 
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let domain_metadata = DomainMetadata::new(String::from("www.phishdeck.com"));
+    ///     println!("{:?}", domain_metadata.geoip_lookup().await);
+    /// }
+    /// ```
+    /// 
+    /// ### Features
+    /// 
+    /// This function requires the `geoip_lookup` feature toggled.
     #[cfg(feature = "whois_lookup")]
     pub async fn whois_lookup(&self) -> Result<DomainMetadata> {
         let mut result = DomainMetadata::new(self.fqdn.clone());
