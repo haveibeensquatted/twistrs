@@ -29,11 +29,14 @@ use maxminddb;
 #[cfg(feature = "geoip_lookup")]
 use maxminddb::geoip2;
 
+#[cfg(feature = "whois_lookup")]
+use whois_rust::WhoIsLookupOptions;
+
 use tokio::net;
 use hyper::{Body, Request};
 use async_smtp::{ClientSecurity, Envelope, SendableEmail, SmtpClient};
 
-use crate::constants::HTTP_CLIENT;
+use crate::constants::{HTTP_CLIENT, WHOIS};
 
 
 /// Temporary type-alias over `EnrichmentError`.
@@ -351,6 +354,37 @@ impl DomainMetadata {
         }  
     }
 
+    #[cfg(feature = "whois_lookup")]
+    pub async fn whois_lookup(&self) -> Result<DomainMetadata> {
+        match WhoIsLookupOptions::from_string(&self.fqdn) {
+            Ok(mut lookup_options) => {
+                lookup_options.timeout = Some(std::time::Duration::from_secs(5));  // Change default timeout from 60s to 5s
+                lookup_options.follow = 1;  // Only allow at most one redirect
+
+                match WHOIS.lookup(lookup_options) {
+                    Ok(lookup_result) => {
+                        &lookup_result.split("\r\n")
+                            // The only entries we care about are the ones that start with 3 spaces.
+                            // Ideally the whois_rust library would have parsed this nicely for us.
+                            .filter(|s| s.starts_with("   "))  
+                            .collect::<Vec<&str>>();
+                    },
+                    Err(e) => { panic!(e) }
+                }        
+            },
+            Err(e) => { panic!(e) }
+        }
+
+        Ok(DomainMetadata {
+            fqdn: self.fqdn.clone(),
+            ips: None,
+            smtp: None,
+            http_banner: None,
+            geo_ip_lookups: None,            
+        })        
+    }
+
+
     /// Performs all FQDN enrichment methods on a given FQDN.
     /// This is the only function that returns a `Vec<DomainMetadata>`.
     /// 
@@ -416,5 +450,12 @@ mod tests {
         let reader = maxminddb::Reader::open_readfile("./data/MaxMind-DB/test-data/GeoIP2-City-Test.mmdb").unwrap();
         
         assert!(domain_metadata.geoip_lookup(&reader).await.is_ok());
-    }        
+    }     
+    
+    #[tokio::test]
+    #[cfg(feature = "whois_lookup")]
+    async fn test_whois_lookup() {
+        let domain_metadata = DomainMetadata::new(String::from("gig.com"));
+        assert!(domain_metadata.whois_lookup().await.is_ok());
+    }     
 }
