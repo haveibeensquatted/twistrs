@@ -16,8 +16,12 @@ fn main() {
     // https://dev.to/rustyoctopus/generating-static-arrays-during-compile-time-in-rust-10d8
     let mut dicionary_output = String::from("");
 
-    let mut tld_array_string = String::from("static TLDS: [&'static str; ");
-    let mut keywords_array_string = String::from("static KEYWORDS: [&'static str; ");
+    let mut tld_array_string      = String::from("#[allow(dead_code)]
+                                                  static TLDS: [&'static str; ");
+    let mut keywords_array_string = String::from("#[allow(dead_code)]
+                                                 static KEYWORDS: [&'static str; ");
+    let mut whois_servers_string  = String::from("#[allow(dead_code)]
+                                                  static WHOIS_RAW_JSON: &'static str = r#");
     
     // Calculate how many TLDs we actually have in the dictionary
     match read_lines("./data/tlds.txt") {
@@ -89,11 +93,26 @@ fn main() {
             "unable to build library due to missing dictionary file(s): {}", e
         ))
     }
+
+    // Compile the WhoIs server config to later perform WhoIs lookups against
+    match read_lines("./data/whois-servers.json") {
+        Ok(lines) => {
+            // Construct the in-memory JSON
+            whois_servers_string.push_str("\"");
+            lines.for_each(|l| whois_servers_string.push_str(&l.unwrap()));
+            whois_servers_string.push_str("\"#;");
+        },
+        Err(e) => panic!(format!(
+            "unable to build library due to missing dictionary file(s): {}", e
+        ))
+    }
     
-    // Start building the final output
+    // Build the final output
     dicionary_output.push_str(&tld_array_string);
     dicionary_output.push_str("\n");
     dicionary_output.push_str(&keywords_array_string);
+    dicionary_output.push_str("\n");
+    dicionary_output.push_str(&whois_servers_string);
 
     // Write out contents to the final Rust file artifact
     let out_dir = env::var("OUT_DIR").unwrap();
