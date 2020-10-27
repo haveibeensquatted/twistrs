@@ -1,4 +1,4 @@
-# Twistr ([docs](https://docs.rs/twistrs)) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master) 
+# Twistr — ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) ![docs](https://docs.rs/twistrs/badge.svg) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) 
 
 <img align="left" width="20%" height="20%" src="res/logo-x1024.png">
 
@@ -90,7 +90,7 @@ async fn main() {
 - [ ] SMTP Banner
 - [x] HTTP Banner
 - [x] GeoIP Lookup (Cached)
-- [ ] WhoIs Lookup
+- [x] WhoIs Lookup
 
 #### Miscellaneous
 
@@ -110,7 +110,7 @@ A: Currently the library (for ease-of-use) bakes the dictionaries into the final
 Q: How does the cached GeoIP lookup work?
 
 A: Currently requires the client to supply their own [`maxminddb`](https://docs.rs/maxminddb/0.15.0/maxminddb/struct.Reader.html) reader and dataset. Twistrs at this point in time
-is mostly an auxillliary wrapper to streamline processing of the DomainMetadata results. For more information 
+is mostly an auxillliary wrapper to streamline processing of the DomainMetadata results.
 
 ## License
 
