@@ -1,5 +1,19 @@
 # CHANGELOG.md
 
+## 0.3.1-beta (2020-10-27)
+
+Security:
+
+  - N/A
+
+Features:
+
+  - Implemented WhoIs lookup.
+
+Fix:
+
+  - N/A
+
 ## 0.3.0-beta (2020-10-26)
 
 Security:
