@@ -335,13 +335,13 @@ impl DomainMetadata {
     /// #[tokio::main]
     /// async fn main() {
     ///     let domain_metadata = DomainMetadata::new(String::from("www.phishdeck.com"));
-    ///     println!("{:?}", domain_metadata.geoip_lookup().await);
+    ///     println!("{:?}", domain_metadata.whois_lookup().await);
     /// }
     /// ```
     /// 
     /// ### Features
     /// 
-    /// This function requires the `geoip_lookup` feature toggled.
+    /// This function requires the `whois_lookup` feature toggled.
     #[cfg(feature = "whois_lookup")]
     pub async fn whois_lookup(&self) -> Result<DomainMetadata> {
         let mut result = DomainMetadata::new(self.fqdn.clone());
