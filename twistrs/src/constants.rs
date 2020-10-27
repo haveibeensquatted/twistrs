@@ -2,8 +2,14 @@ use phf::phf_map;
 use fancy_regex::Regex;
 use publicsuffix::List;
 
+use whois_rust::WhoIs;
+
 use hyper::Client;
 use hyper::client::HttpConnector;
+
+// Include further constants such as dictionaries that are
+// generated during compile time.
+include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
 lazy_static! {
 
@@ -41,6 +47,8 @@ lazy_static! {
         .http1_read_buf_exact_size(1024)
         .retry_canceled_requests(false)
         .build(http_connector());
+
+    pub static ref WHOIS: WhoIs = WhoIs::from_string(WHOIS_RAW_JSON).unwrap();
 }
 
 /// Internal helper to create an HTTP Connector
