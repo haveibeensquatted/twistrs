@@ -2,6 +2,7 @@ use phf::phf_map;
 use fancy_regex::Regex;
 use publicsuffix::List;
 
+#[cfg(feature = "whois_lookup")]
 use whois_rust::WhoIs;
 
 use hyper::Client;
@@ -47,7 +48,14 @@ lazy_static! {
         .http1_read_buf_exact_size(1024)
         .retry_canceled_requests(false)
         .build(http_connector());
+}
 
+// This is currently a bit annoying, however since the WHOIS lookup table
+// is build at runtime, and is feature-gated, we cannot have this activated
+// within the original lazy_static! macro. We would need to block the 
+// entire macro behind the feature gate instead.
+#[cfg(feature = "whois_lookup")]
+lazy_static! {
     pub static ref WHOIS: WhoIs = WhoIs::from_string(WHOIS_RAW_JSON).unwrap();
 }
 

@@ -36,7 +36,10 @@ use tokio::net;
 use hyper::{Body, Request};
 use async_smtp::{ClientSecurity, Envelope, SendableEmail, SmtpClient};
 
-use crate::constants::{HTTP_CLIENT, WHOIS};
+use crate::constants::HTTP_CLIENT;
+
+#[cfg(feature = "whois_lookup")]
+use crate::constants::WHOIS;
 
 
 /// Temporary type-alias over `EnrichmentError`.
