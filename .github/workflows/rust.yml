@@ -16,11 +16,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@master
-    - name: Checkout submodules
-      uses: textbook/git-checkout-submodule-action@master  
-      with:
-        remote: true
+      run: git pull --recurse-submodules
     - name: Build
       run: cargo build --all-features --verbose
     - name: Run tests
