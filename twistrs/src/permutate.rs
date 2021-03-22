@@ -18,12 +18,14 @@
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
 use crate::constants::{
-    ASCII_LOWER, EFFECTIVE_TLDS, HOMOGLYPHS, IDNA_FILTER_REGEX, KEYBOARD_LAYOUTS, VOWELS,
+    ASCII_LOWER, HOMOGLYPHS, IDNA_FILTER_REGEX, KEYBOARD_LAYOUTS, VOWELS,
 };
 
 use std::collections::HashSet;
 use std::fmt;
 
+use addr::parser::DomainName;
+use addr::psl::List;
 use idna::punycode;
 use itertools::Itertools;
 
@@ -66,28 +68,16 @@ impl<'a> Domain<'a> {
     /// will perform additional operations to break the domain into
     /// one or more chunks to be used during domain permutations.
     pub fn new(fqdn: &'a str) -> Result<Domain<'a>> {
-        match EFFECTIVE_TLDS.parse_domain(fqdn) {
-            Ok(parsed_domain) => {
-                let parts = parsed_domain
-                    .root()
-                    .unwrap() // TODO(jdb): Figure out how to handle this unwrap
-                    .split('.')
-                    .collect::<Vec<&str>>();
-
-                let len = parts.len();
-
-                if len < 2 {
-                    return Err(PermutationError);
-                }
-
-                let tld = parts[len - 1].to_string();
-                let domain = String::from(parts[len - 2]);
-
-                Ok(Domain { fqdn, tld, domain })
-            }
-
-            Err(_) => Err(PermutationError),
-        }
+        let parsed_domain = List.parse_domain_name(fqdn).map_err(|_| PermutationError)?;
+        let root_domain = parsed_domain.root().ok_or(PermutationError)?;
+        let tld = parsed_domain.suffix().to_string();
+        let domain = root_domain
+            .find('.')
+            .and_then(|offset| root_domain.get(..offset))
+            // this should never error out since `root_domain` is a valid domain name
+            .ok_or(PermutationError)?
+            .to_string();
+        Ok(Domain { fqdn, tld, domain })
     }
 
     /// Generate any and all possible domain permutations for a given `Domain`.
