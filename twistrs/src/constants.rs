@@ -1,6 +1,5 @@
 use phf::phf_map;
 use fancy_regex::Regex;
-use publicsuffix::List;
 
 #[cfg(feature = "whois_lookup")]
 use whois_rust::WhoIs;
@@ -19,20 +18,6 @@ lazy_static! {
     /// 
     /// The regex is taken from [dnstwist](https://github.com/elceef/dnstwist/blob/5368e465c35355c43d189b093acf41773e869d25/dnstwist.py#L213-L227).
     pub static ref IDNA_FILTER_REGEX: Regex = Regex::new("(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\\.)+[a-zA-Z]{2,63}\\.?$)").unwrap();
-
-    // @CLEANUP(jdb): Right now this is going to always incur a runtime
-    //                overhead since we need to always fetch the list
-    //                over HTTP. In the future, this should be kept lo-
-    //                cally and call List::from_str instead.
-    //
-    //                At first we used List::from_path and pointed to a
-    //                local .dat file containing the TLDs, however giv-
-    //                en that this is a library, this is not the right
-    //                way to go about it.
-    //
-    //  Ref: https://docs.rs/publicsuffix/1.5.4/publicsuffix/struct.List.html
-    pub static ref EFFECTIVE_TLDS: List =
-        List::fetch().unwrap();
 
     pub static ref KEYBOARD_LAYOUTS: Vec<&'static phf::Map<char, &'static str>> = vec![
         &QWERTY_KEYBOARD_LAYOUT,

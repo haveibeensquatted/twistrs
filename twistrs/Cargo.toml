@@ -20,7 +20,7 @@ geoip_lookup = [ "maxminddb" ]
 whois_lookup = [ "whois-rust" ]
 
 [dependencies]
-publicsuffix = "1.5"
+addr = "0.13.1"
 lazy_static  = "1.4.0"
 phf	         = { version = "0.8.0", features = ["macros"] }
 async-smtp = "0.3.4"
