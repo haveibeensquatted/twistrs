@@ -2,7 +2,7 @@
 name = "twistrs-grpc"
 version = "0.1.0"
 authors = ["Juxhin Dyrmishi Brigjaj <juxhin@phishdeck.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 twistrs = { path = "../../twistrs" }
