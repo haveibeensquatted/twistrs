@@ -17,9 +17,7 @@
 //!
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
-use crate::constants::{
-    ASCII_LOWER, HOMOGLYPHS, IDNA_FILTER_REGEX, KEYBOARD_LAYOUTS, VOWELS,
-};
+use crate::constants::{ASCII_LOWER, HOMOGLYPHS, IDNA_FILTER_REGEX, KEYBOARD_LAYOUTS, VOWELS};
 
 use std::collections::HashSet;
 use std::fmt;
@@ -109,14 +107,14 @@ impl<'a> Domain<'a> {
         Domain::filter_domains(
             ASCII_LOWER
                 .iter()
-                .map(move |c| format!("{}{}.{}", self.domain, c.to_string(), self.tld)),
+                .map(move |c| format!("{}{}.{}", self.domain, c, self.tld)),
         )
     }
 
     /// Following implementation takes inspiration from the following content:
     ///
-    ///  - https://github.com/artemdinaburg/bitsquat-script/blob/master/bitsquat.py
-    ///  - http://dinaburg.org/bitsquatting.html
+    ///  - <`https://github.com/artemdinaburg/bitsquat-script/blob/master/bitsquat.py`>
+    ///  - <`http://dinaburg.org/bitsquatting.html`>
     ///
     /// Go through each char in the domain and XOR it against 8 separate masks:
     ///
@@ -142,8 +140,8 @@ impl<'a> Domain<'a> {
                     let squatted_char: u8 = mask ^ (c as u8);
 
                     // Make sure we remain with ASCII range that we are happy with
-                    if (squatted_char >= 48 && squatted_char <= 57)
-                        || (squatted_char >= 97 && squatted_char <= 122)
+                    if ((48..=57).contains(&squatted_char))
+                        || ((97..=122).contains(&squatted_char))
                         || squatted_char == 45
                     {
                         Some((1..self.fqdn.len()).map(move |idx| {
@@ -178,19 +176,15 @@ impl<'a> Domain<'a> {
                 while j < ws {
                     let c: char = win.chars().nth(j).unwrap();
 
-                    if HOMOGLYPHS.contains_key(&c) {
-                        for glyph in HOMOGLYPHS.get(&c) {
-                            let _glyph = glyph.chars().collect::<Vec<char>>();
-
-                            for g in _glyph {
-                                let new_win = win.replace(c, &g.to_string());
-                                result_first_pass.insert(format!(
-                                    "{}{}{}",
-                                    &self.fqdn[..i],
-                                    &new_win,
-                                    &self.fqdn[i + ws..]
-                                ));
-                            }
+                    if let Some(glyph) = HOMOGLYPHS.get(&c) {
+                        for g in glyph.chars().collect::<Vec<char>>() {
+                            let new_win = win.replace(c, &g.to_string());
+                            result_first_pass.insert(format!(
+                                "{}{}{}",
+                                &self.fqdn[..i],
+                                &new_win,
+                                &self.fqdn[i + ws..]
+                            ));
                         }
                     }
 
@@ -199,33 +193,29 @@ impl<'a> Domain<'a> {
             }
         }
 
-        for domain in result_first_pass.iter() {
-            // We need to do this as we are dealing with UTF8 characters
-            // meaning that we cannot simple iterate over single byte
-            // values (as certain characters are composed of two or more)
-            let _domain = domain.chars().collect::<Vec<char>>();
-
+        for domain in &result_first_pass {
             for ws in 1..fqdn.len() {
                 for i in 0..(fqdn.len() - ws) + 1 {
-                    let win: String = _domain[i..i + ws].iter().collect();
+                    // We need to do this as we are dealing with UTF8 characters
+                    // meaning that we cannot simple iterate over single byte
+                    // values (as certain characters are composed of two or more)
+                    let win: String = domain.chars().collect::<Vec<char>>()[i..i + ws]
+                        .iter()
+                        .collect();
                     let mut j = 0;
 
                     while j < ws {
                         let c: char = win.chars().nth(j).unwrap();
 
-                        if HOMOGLYPHS.contains_key(&c) {
-                            for glyph in HOMOGLYPHS.get(&c) {
-                                let _glyph = glyph.chars().collect::<Vec<char>>();
-
-                                for g in _glyph {
-                                    let new_win = win.replace(c, &g.to_string());
-                                    result_second_pass.insert(format!(
-                                        "{}{}{}",
-                                        &self.fqdn[..i],
-                                        &new_win,
-                                        &self.fqdn[i + ws..]
-                                    ));
-                                }
+                        if let Some(glyph) = HOMOGLYPHS.get(&c) {
+                            for g in glyph.chars().collect::<Vec<char>>() {
+                                let new_win = win.replace(c, &g.to_string());
+                                result_second_pass.insert(format!(
+                                    "{}{}{}",
+                                    &self.fqdn[..i],
+                                    &new_win,
+                                    &self.fqdn[i + ws..]
+                                ));
                             }
                         }
 

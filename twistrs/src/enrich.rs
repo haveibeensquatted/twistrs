@@ -65,7 +65,7 @@ impl fmt::Display for EnrichmentError {
 /// information that was derived.
 ///
 /// **N.B**—there will be cases where a single
-/// domain can have multiple DomainMetadata
+/// domain can have multiple `DomainMetadata`
 /// instancees associated with it.
 #[derive(Debug, Clone, Default)]
 pub struct DomainMetadata {
@@ -104,13 +104,13 @@ pub struct SmtpMetadata {
 impl DomainMetadata {
     /// Create a new empty state for a particular FQDN.
     pub fn new(fqdn: String) -> DomainMetadata {
-        let mut d = DomainMetadata::default();
-        d.fqdn = fqdn;
-
-        d
+        DomainMetadata {
+            fqdn,
+            ..Default::default()
+        }
     }
 
-    /// Asynchronous DNS resolution on a DomainMetadata instance.
+    /// Asynchronous DNS resolution on a `DomainMetadata` instance.
     ///
     /// Returns `Ok(DomainMetadata)` is the domain was resolved,
     /// otherwise returns `Err(EnrichmentError)`.
@@ -163,11 +163,7 @@ impl DomainMetadata {
                 ips: None,
                 smtp: Some(SmtpMetadata {
                     is_positive: response.is_positive(),
-                    message: response
-                        .message
-                        .into_iter()
-                        .map(|s| s.to_string())
-                        .collect::<String>(),
+                    message: response.message.into_iter().collect::<String>(),
                 }),
                 http_banner: None,
                 geo_ip_lookups: None,

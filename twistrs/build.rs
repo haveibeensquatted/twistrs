@@ -1,5 +1,3 @@
-use punycode;
-
 use std::io::{self, BufRead};
 use std::{env, fs, path::Path};
 
@@ -16,15 +14,15 @@ fn main() {
 
     let mut tld_array_string = String::from(
         "#[allow(dead_code)]
-                                                  static TLDS: [&'static str; ",
+                                                  static TLDS: [&str; ",
     );
     let mut keywords_array_string = String::from(
         "#[allow(dead_code)]
-                                                 static KEYWORDS: [&'static str; ",
+                                                 static KEYWORDS: [&str; ",
     );
     let mut whois_servers_string = String::from(
         "#[allow(dead_code)]
-                                                  static WHOIS_RAW_JSON: &'static str = r#",
+                                                  static WHOIS_RAW_JSON: &str = r#",
     );
 
     // Calculate how many TLDs we actually have in the dictionary
@@ -43,13 +41,11 @@ fn main() {
                 // Formatting some tabs (ASCII-20)
                 tld_array_string.push_str("\u{20}\u{20}\u{20}\u{20}\"");
 
-                let tld;
-
-                if line.chars().all(char::is_alphanumeric) {
-                    tld = line.to_string();
+                let tld = if line.chars().all(char::is_alphanumeric) {
+                    line.to_string()
                 } else {
-                    tld = punycode::encode(line.to_string().as_str()).unwrap()
-                }
+                    punycode::encode(line.to_string().as_str()).unwrap()
+                };
 
                 tld_array_string.push_str(&tld[..]);
                 tld_array_string.push_str("\",\r\n");
@@ -82,13 +78,11 @@ fn main() {
                 // Formatting some tabs (ASCII-20)
                 keywords_array_string.push_str("\u{20}\u{20}\u{20}\u{20}\"");
 
-                let tld;
-
-                if line.chars().all(char::is_alphanumeric) {
-                    tld = line.to_string();
+                let tld = if line.chars().all(char::is_alphanumeric) {
+                    line.to_string()
                 } else {
-                    tld = punycode::encode(line.to_string().as_str()).unwrap()
-                }
+                    punycode::encode(line.to_string().as_str()).unwrap()
+                };
 
                 keywords_array_string.push_str(&tld[..]);
                 keywords_array_string.push_str("\",\r\n");
@@ -110,7 +104,7 @@ fn main() {
     match read_lines("./data/whois-servers.json") {
         Ok(lines) => {
             // Construct the in-memory JSON
-            whois_servers_string.push_str("\"");
+            whois_servers_string.push('"');
             lines.for_each(|l| whois_servers_string.push_str(&l.unwrap()));
             whois_servers_string.push_str("\"#;");
         }
@@ -125,9 +119,9 @@ fn main() {
 
     // Build the final output
     dicionary_output.push_str(&tld_array_string);
-    dicionary_output.push_str("\n");
+    dicionary_output.push('\n');
     dicionary_output.push_str(&keywords_array_string);
-    dicionary_output.push_str("\n");
+    dicionary_output.push('\n');
     dicionary_output.push_str(&whois_servers_string);
 
     // Write out contents to the final Rust file artifact
