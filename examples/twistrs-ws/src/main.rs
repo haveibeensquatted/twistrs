@@ -10,8 +10,8 @@ use tokio::sync::{mpsc, RwLock};
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-use twistrs::permutate::Domain;
 use twistrs::enrich::DomainMetadata;
+use twistrs::permutate::Domain;
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
@@ -28,9 +28,7 @@ async fn main() {
     let chat = warp::path("chat")
         .and(warp::ws())
         .and(users)
-        .map(|ws: warp::ws::Ws, users| {
-            ws.on_upgrade(move |socket| user_connected(socket, users))
-        });
+        .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| user_connected(socket, users)));
 
     let index = warp::path::end().map(|| warp::reply::html(INDEX_HTML));
     let routes = index.or(chat);
@@ -95,32 +93,30 @@ async fn user_message(my_id: usize, msg: Message, users: &Users) {
             eprintln!("initiating dns resolution checks for user: {}", my_id);
 
             let domain = Domain::new(&msg).unwrap();
-            let mut domain_permutations = domain.all().unwrap().collect::<HashSet<String>>();        
+            let mut domain_permutations = domain.all().collect::<HashSet<String>>();
             domain_permutations.insert(String::from(domain.fqdn.clone()));
-        
+
             for v in domain_permutations.into_iter() {
                 let domain_metadata = DomainMetadata::new(v.clone());
                 let tx = tx.clone();
 
                 tokio::spawn(async move {
                     match domain_metadata.dns_resolvable().await {
-                        Ok(metadata) => {
-                            match metadata.ips {
-                                Some(ips) => {
-                                    if let Err(_) = tx.send(Ok(Message::text(format!("{:?}", ips)))) {
-                                        println!("received dropped");
-                                        return;
-                                    }
-                        
-                                    drop(tx);
-                                },
-                                None => return,
+                        Ok(metadata) => match metadata.ips {
+                            Some(ips) => {
+                                if let Err(_) = tx.send(Ok(Message::text(format!("{:?}", ips)))) {
+                                    println!("received dropped");
+                                    return;
+                                }
+
+                                drop(tx);
                             }
+                            None => return,
                         },
                         Err(_) => return,
                     }
                 });
-            }                      
+            }
         }
     }
 }
