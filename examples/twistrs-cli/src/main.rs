@@ -15,11 +15,7 @@ async fn main() {
     let matches = App::new("twistrs-cli")
         .version("0.1.0")
         .author("Juxhin D. Brigjaj <juxhin@phishdeck.com>")
-        .arg(
-            Arg::new("domain")
-                .about("domain to permutate and enrich")
-                .required(true),
-        )
+        .arg(Arg::new("domain").required(true))
         .get_matches();
 
     let domain = Domain::new(&matches.value_of("domain").unwrap()).unwrap();
