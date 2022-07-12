@@ -1,10 +1,10 @@
-use phf::phf_map;
 use fancy_regex::Regex;
+use phf::phf_map;
 
 #[cfg(feature = "whois_lookup")]
 use whois_rust::WhoIs;
 
-use hyper::Client;
+use hyper::client::Client;
 use hyper::client::HttpConnector;
 
 // Include further constants such as dictionaries that are
@@ -15,7 +15,7 @@ lazy_static! {
 
     /// IDNA filter regex used to reduce number of domain permutations
     /// that are generated and validated.
-    /// 
+    ///
     /// The regex is taken from [dnstwist](https://github.com/elceef/dnstwist/blob/5368e465c35355c43d189b093acf41773e869d25/dnstwist.py#L213-L227).
     pub static ref IDNA_FILTER_REGEX: Regex = Regex::new("(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\\.)+[a-zA-Z]{2,63}\\.?$)").unwrap();
 
@@ -37,7 +37,7 @@ lazy_static! {
 
 // This is currently a bit annoying, however since the WHOIS lookup table
 // is build at runtime, and is feature-gated, we cannot have this activated
-// within the original lazy_static! macro. We would need to block the 
+// within the original lazy_static! macro. We would need to block the
 // entire macro behind the feature gate instead.
 #[cfg(feature = "whois_lookup")]
 lazy_static! {
@@ -50,7 +50,7 @@ fn http_connector() -> HttpConnector {
     c.set_recv_buffer_size(Some(1024));
     c.set_connect_timeout(Some(std::time::Duration::new(5, 0)));
     c.enforce_http(true);
-    c 
+    c
 }
 
 /// Static list of lowercase ASCII characters.
