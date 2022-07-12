@@ -1,5 +1,19 @@
 # CHANGELOG.md
 
+## 0.4.0-beta (2022-07-13)
+
+Security:
+
+  - Number of dependencies have been bumped to resolve security bugs;
+
+Features:
+
+  - N/A
+
+Fix:
+
+  - Bumped up Hyper to allow use of Tokio 1.x.x runtimes
+
 ## 0.3.1-beta (2020-10-27)
 
 Security:
