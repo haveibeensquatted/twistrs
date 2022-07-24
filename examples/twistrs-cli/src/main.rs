@@ -18,12 +18,12 @@ async fn main() {
         .arg(Arg::new("domain").required(true))
         .get_matches();
 
-    let domain = Domain::new(&matches.value_of("domain").unwrap()).unwrap();
+    let domain = Domain::new(matches.value_of("domain").unwrap()).unwrap();
 
     let mut domain_permutations = domain.all().collect::<HashSet<String>>();
     let domain_permutation_count = domain_permutations.len();
 
-    domain_permutations.insert(String::from(domain.fqdn.clone()));
+    domain_permutations.insert(String::from(&(*domain.fqdn)));
 
     let (tx, mut rx) = mpsc::channel(5000);
 
@@ -32,9 +32,10 @@ async fn main() {
         let mut tx = tx.clone();
 
         tokio::spawn(async move {
-            if let Err(_) = tx
+            if tx
                 .send((i, v.clone(), domain_metadata.dns_resolvable().await))
                 .await
+                .is_err()
             {
                 println!("received dropped");
                 return;
@@ -49,20 +50,16 @@ async fn main() {
     let mut enumeration_count = 0;
 
     while let Some(i) = rx.recv().await {
-        match i.2 {
-            Ok(v) => match v.ips {
-                Some(_) => {
-                    enumeration_count += 1;
-                    println!(
-                        "\n{}\nDomain: {}\n IPs: {:?}",
-                        "Enriched Domain".bold(),
-                        &v.fqdn,
-                        &v.ips
-                    );
-                }
-                None => {}
-            },
-            Err(_) => {}
+        if let Ok(v) = i.2 {
+            if v.ips.is_some() {
+                enumeration_count += 1;
+                println!(
+                    "\n{}\nDomain: {}\n IPs: {:?}",
+                    "Enriched Domain".bold(),
+                    &v.fqdn,
+                    &v.ips
+                );
+            }
         }
     }
 

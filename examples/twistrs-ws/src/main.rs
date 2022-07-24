@@ -92,28 +92,24 @@ async fn user_message(my_id: usize, msg: Message, users: &Users) {
         if my_id == uid {
             eprintln!("initiating dns resolution checks for user: {}", my_id);
 
-            let domain = Domain::new(&msg).unwrap();
+            let domain = Domain::new(msg).unwrap();
             let mut domain_permutations = domain.all().collect::<HashSet<String>>();
-            domain_permutations.insert(String::from(domain.fqdn.clone()));
+            domain_permutations.insert(String::from(&(*domain.fqdn)));
 
             for v in domain_permutations.into_iter() {
                 let domain_metadata = DomainMetadata::new(v.clone());
                 let tx = tx.clone();
 
                 tokio::spawn(async move {
-                    match domain_metadata.dns_resolvable().await {
-                        Ok(metadata) => match metadata.ips {
-                            Some(ips) => {
-                                if let Err(_) = tx.send(Ok(Message::text(format!("{:?}", ips)))) {
-                                    println!("received dropped");
-                                    return;
-                                }
-
-                                drop(tx);
+                    if let Ok(metadata) = domain_metadata.dns_resolvable().await {
+                        if let Some(ips) = metadata.ips {
+                            if tx.send(Ok(Message::text(format!("{:?}", ips)))).is_err() {
+                                println!("received dropped");
+                                return;
                             }
-                            None => return,
-                        },
-                        Err(_) => return,
+
+                            drop(tx);
+                        }
                     }
                 });
             }

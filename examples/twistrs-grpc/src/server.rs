@@ -31,23 +31,20 @@ impl DomainEnumeration for DomainEnumerationService {
 
             // Spawn DNS Resolution check
             tokio::spawn(async move {
-                match domain_metadata.dns_resolvable().await {
-                    Ok(metadata) => match metadata.ips {
-                        Some(ips) => {
-                            if let Err(_) = tx
-                                .send(Ok(DomainEnumerationResponse {
-                                    fqdn: format!("{}", permutation.clone()),
-                                    ips: ips.into_iter().map(|x| format!("{}", x)).collect(),
-                                }))
-                                .await
-                            {
-                                println!("receiver dropped");
-                                return;
-                            }
+                if let Ok(metadata) = domain_metadata.dns_resolvable().await {
+                    if let Some(ips) = metadata.ips {
+                        if tx
+                            .send(Ok(DomainEnumerationResponse {
+                                fqdn: permutation.clone().to_string(),
+                                ips: ips.into_iter().map(|x| format!("{}", x)).collect(),
+                            }))
+                            .await
+                            .is_err()
+                        {
+                            println!("receiver dropped");
+                            return;
                         }
-                        None => {}
-                    },
-                    Err(_) => {}
+                    }
                 }
 
                 drop(tx);
@@ -71,24 +68,21 @@ impl DomainEnumeration for DomainEnumerationService {
 
             // Spawn DNS Resolution check
             tokio::spawn(async move {
-                match domain_metadata.mx_check().await {
-                    Ok(metadata) => match metadata.smtp {
-                        Some(smtp) => {
-                            if let Err(_) = tx
-                                .send(Ok(MxCheckResponse {
-                                    fqdn: format!("{}", permutation.clone()),
-                                    is_positive: smtp.is_positive,
-                                    message: smtp.message,
-                                }))
-                                .await
-                            {
-                                println!("receiver dropped");
-                                return;
-                            }
+                if let Ok(metadata) = domain_metadata.mx_check().await {
+                    if let Some(smtp) = metadata.smtp {
+                        if tx
+                            .send(Ok(MxCheckResponse {
+                                fqdn: permutation.clone().to_string(),
+                                is_positive: smtp.is_positive,
+                                message: smtp.message,
+                            }))
+                            .await
+                            .is_err()
+                        {
+                            println!("receiver dropped");
+                            return;
                         }
-                        None => {}
-                    },
-                    Err(_) => {}
+                    }
                 }
 
                 drop(tx);
