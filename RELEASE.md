@@ -4,7 +4,7 @@ Twistrs following a semantic versioning scheme. For every release, the following
 
 ## Cycle
 
-1. Compile latest `master` branch (`cargo b`);
+1. Compile latest `main` branch (`cargo b`);
 2. Run entire test and doctest suite (`cargo t`);
 3. Create new branch with release name (e.g. `0.1.3-beta`);
 4. Open Pull Request with title, `Release $VERSION`;
@@ -13,4 +13,4 @@ Twistrs following a semantic versioning scheme. For every release, the following
 7. Update library version in _all_ examples. If there are breaking changes, examples must be updated first;
 8. Rerun entire test suite (`cargo t`);
 9. Update CHANGELOG.md with list of changes;
-10. Merge or request merge, of pull request to `master`. 
+10. Merge or request merge, of pull request to `main`. 

@@ -1,5 +1,19 @@
 # CHANGELOG.md
 
+## 0.4.1 (2022-07-24)
+
+Security:
+
+  - N/A
+
+Features:
+  
+  - Added `Serialize` traits to key Permutation and Enrichment structs
+
+Fix:
+
+  - Pinned internal dependency to stable version that allows compilation
+
 ## 0.4.0-beta (2022-07-13)
 
 Security:
