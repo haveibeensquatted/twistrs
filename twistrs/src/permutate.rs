@@ -26,6 +26,7 @@ use addr::parser::DomainName;
 use addr::psl::List;
 use idna::punycode;
 use itertools::Itertools;
+use serde::Serialize;
 
 // Include further constants such as dictionaries that are
 // generated during compile time.
@@ -35,7 +36,7 @@ include!(concat!(env!("OUT_DIR"), "/data.rs"));
 type Result<T> = std::result::Result<T, PermutationError>;
 
 /// Wrapper around an FQDN to perform permutations against.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize)]
 pub struct Domain<'a> {
     /// The domain FQDN to generate permutations from.
     pub fqdn: &'a str,
