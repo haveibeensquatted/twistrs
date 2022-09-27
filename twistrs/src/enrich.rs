@@ -216,21 +216,17 @@ impl DomainMetadata {
             .unwrap();
 
         match HTTP_CLIENT.request(request).await {
-            Ok(response) => {
-                dbg!(&response);
-
-                match response.headers().get("server") {
-                    Some(server) => Ok(DomainMetadata {
-                        fqdn: self.fqdn.clone(),
-                        ips: None,
-                        smtp: None,
-                        http_banner: Some(String::from(server.to_str().unwrap())),
-                        geo_ip_lookups: None,
-                        who_is_lookup: None,
-                    }),
-                    None => Ok(DomainMetadata::new(self.fqdn.clone())),
-                }
-            }
+            Ok(response) => match response.headers().get("server") {
+                Some(server) => Ok(DomainMetadata {
+                    fqdn: self.fqdn.clone(),
+                    ips: None,
+                    smtp: None,
+                    http_banner: Some(String::from(server.to_str().unwrap())),
+                    geo_ip_lookups: None,
+                    who_is_lookup: None,
+                }),
+                None => Ok(DomainMetadata::new(self.fqdn.clone())),
+            },
             Err(_) => Ok(DomainMetadata::new(self.fqdn.clone())),
         }
     }
