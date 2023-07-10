@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.4.3 (2023-07-10)
+
+Features:
+
+  - Added `smtp_lookup` feature flag thanks to [PR #45](https://github.com/JuxhinDB/twistrs/pull/45)
+
 ## 0.4.1 (2022-07-24)
 
 Security:
