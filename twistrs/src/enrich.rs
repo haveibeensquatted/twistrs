@@ -32,6 +32,7 @@ use maxminddb::geoip2;
 #[cfg(feature = "whois_lookup")]
 use whois_rust::WhoIsLookupOptions;
 
+#[cfg(feature = "smtp_lookup")]
 use async_smtp::{ClientSecurity, Envelope, SendableEmail, ServerAddress, SmtpClient};
 use hyper::{Body, Request};
 use tokio::net;
@@ -139,6 +140,7 @@ impl DomainMetadata {
     /// internally contains `Option<SmtpMetadata>`. To check
     /// if the SMTP relay worked, check that
     /// `DomainMetadata.smtp` is `Some(v)`.
+    #[cfg(feature = "smtp_lookup")]
     pub async fn mx_check(&self) -> Result<DomainMetadata> {
         let email = SendableEmail::new(
             Envelope::new(
@@ -242,7 +244,7 @@ impl DomainMetadata {
     /// resolves to.
     ///
     /// ```
-    /// use maxminddb::Reader;    
+    /// use maxminddb::Reader;
     /// use twistrs::enrich::DomainMetadata;
     ///
     /// #[tokio::main]
@@ -392,12 +394,19 @@ impl DomainMetadata {
     /// an Err.
     pub async fn all(&self) -> Result<Vec<DomainMetadata>> {
         // @CLEANUP(JDB): This should use try_join! in the future instead
-        let result = futures::join!(self.dns_resolvable(), self.mx_check(), self.http_banner());
+
+        #[cfg(feature = "smtp_lookup")]
+        let mx_check = self.mx_check();
+
+        let result = futures::join!(self.dns_resolvable(),
+            self.http_banner()
+        );
 
         Ok(vec![
             result.0.unwrap(),
+            #[cfg(feature = "smtp_lookup")]
+            mx_check,
             result.1.unwrap(),
-            result.2.unwrap(),
         ])
     }
 }
