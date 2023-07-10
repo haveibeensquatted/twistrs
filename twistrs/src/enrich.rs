@@ -398,14 +398,12 @@ impl DomainMetadata {
         #[cfg(feature = "smtp_lookup")]
         let mx_check = self.mx_check();
 
-        let result = futures::join!(self.dns_resolvable(),
-            self.http_banner()
-        );
+        let result = futures::join!(self.dns_resolvable(), self.http_banner());
 
         Ok(vec![
             result.0.unwrap(),
             #[cfg(feature = "smtp_lookup")]
-            mx_check,
+            mx_check.await.unwrap(),
             result.1.unwrap(),
         ])
     }
