@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.5.0 (2023-07-16)
+
+Fix:
+
+  - (**BREAKING**): Reworked error handling entirely within the library 
+
 ## 0.4.1 (2022-07-24)
 
 Security:
