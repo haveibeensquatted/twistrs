@@ -5,11 +5,12 @@ use tokio::sync::mpsc;
 use twistrs::enrich::DomainMetadata;
 use twistrs::permutate::Domain;
 
+use anyhow::Result;
 use std::collections::HashSet;
 use std::time::Instant;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     let start_time = Instant::now();
 
     let matches = App::new("twistrs-cli")
@@ -20,10 +21,10 @@ async fn main() {
 
     let domain = Domain::new(matches.value_of("domain").unwrap()).unwrap();
 
-    let mut domain_permutations = domain.all().collect::<HashSet<String>>();
+    let mut domain_permutations = domain.all()?.collect::<HashSet<String>>();
     let domain_permutation_count = domain_permutations.len();
 
-    domain_permutations.insert(String::from(&(*domain.fqdn)));
+    domain_permutations.insert(String::from(domain.fqdn));
 
     let (tx, mut rx) = mpsc::channel(5000);
 
@@ -80,4 +81,6 @@ async fn main() {
         "Execution time".bold(),
         start_time.elapsed().as_secs()
     );
+
+    Ok(())
 }

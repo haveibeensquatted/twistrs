@@ -127,7 +127,7 @@ fn main() {
     // Write out contents to the final Rust file artifact
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("data.rs");
-    fs::write(&dest_path, dicionary_output).unwrap();
+    fs::write(dest_path, dicionary_output).unwrap();
 }
 
 // The output is wrapped in a Result to allow matching on errors
