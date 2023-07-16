@@ -22,19 +22,19 @@ geoip_lookup = [ "maxminddb" ]
 whois_lookup = [ "whois-rust" ]
 
 [dependencies]
-addr = "0.13.1"
+addr = "0.15.6"
 lazy_static = "1.4.0"
-phf	= { version = "0.8.0", features = ["macros"] }
-async-smtp = { version = "0.5.0", optional = true }
-futures = "0.3"
+phf	= { version = "0.11.2", features = ["macros"] }
+async-smtp = { version = "0.9.0", optional = true }
+futures = "0.3.28"
 tokio = { version = "1.29.1", features = ["full"] }
-fancy-regex = "0.4.0"
-idna = "0.2.0"
+fancy-regex = "0.11.0"
+idna = "0.4.0"
 hyper = { version = "0.14.20", features = ["client", "http1", "http2", "tcp"] }
-itertools = "0.9.0"
-serde = { version = "1.0.140", default_features = false, features = ["derive"]}
-maxminddb = { version = "0.15.0", optional = true}
-whois-rust = { version = "1.2.3", optional = true}
+itertools = "0.11.0"
+serde = { version = "1.0.171", default_features = false, features = ["derive"]}
+maxminddb = { version = "0.23.0", optional = true}
+whois-rust = { version = "1.5.1", optional = true}
 thiserror = "1.0.43"
 anyhow = "1.0.71"
 
@@ -42,7 +42,7 @@ anyhow = "1.0.71"
 punycode = "0.4.1"
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.5.1"
 tokio  = { version = "1.29.1", features = ["macros"] }
 
 [[bench]]

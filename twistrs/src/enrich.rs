@@ -31,7 +31,11 @@ use maxminddb::geoip2;
 use whois_rust::WhoIsLookupOptions;
 
 #[cfg(feature = "smtp_lookup")]
-use async_smtp::{ClientSecurity, Envelope, SendableEmail, ServerAddress, SmtpClient};
+use async_smtp::{Envelope, SendableEmail, SmtpClient, SmtpTransport};
+
+#[cfg(feature = "smtp_lookup")]
+use tokio::{io::BufStream, net::TcpStream};
+
 use hyper::{Body, Request};
 use tokio::net;
 
@@ -167,39 +171,40 @@ impl DomainMetadata {
                 domain: self.fqdn.clone(),
                 error: anyhow::Error::msg(e),
             })?,
-            "Twistrs",
             "And that's how the cookie crumbles\n",
         );
 
-        let smtp = SmtpClient::with_security(
-            ServerAddress {
-                host: self.fqdn.to_string(),
-                port: 25,
-            },
-            ClientSecurity::None,
+        let stream = BufStream::new(
+            TcpStream::connect(&format!("{}:25", self.fqdn.to_string()))
+                .await
+                .map_err(|e| EnrichmentError::SmtpLookupError {
+                    domain: self.fqdn.clone(),
+                    error: anyhow::Error::msg(e),
+                })?,
         );
+        let client = SmtpClient::new();
+        let mut transport = SmtpTransport::new(client, stream).await.map_err(|e| {
+            EnrichmentError::SmtpLookupError {
+                domain: self.fqdn.clone(),
+                error: anyhow::Error::msg(e),
+            }
+        })?;
 
-        let result = smtp
-            .into_transport()
-            .connect_and_send(email)
-            .await
-            .map(|response| DomainMetadata {
-                fqdn: self.fqdn.clone(),
-                ips: None,
-                smtp: Some(SmtpMetadata {
-                    is_positive: response.is_positive(),
-                    message: response.message.into_iter().collect::<String>(),
-                }),
-                http_banner: None,
-                geo_ip_lookups: None,
-                who_is_lookup: None,
-            });
+        let result = transport.send(email).await.map(|response| DomainMetadata {
+            fqdn: self.fqdn.clone(),
+            ips: None,
+            smtp: Some(SmtpMetadata {
+                is_positive: response.is_positive(),
+                message: response.message.into_iter().collect::<String>(),
+            }),
+            http_banner: None,
+            geo_ip_lookups: None,
+            who_is_lookup: None,
+        });
 
         Ok(match result {
             Ok(domain_metadata) => Ok(domain_metadata),
-            Err(async_smtp::smtp::error::Error::Timeout(_)) => {
-                Ok(DomainMetadata::new(self.fqdn.clone()))
-            }
+            Err(async_smtp::error::Error::Timeout(_)) => Ok(DomainMetadata::new(self.fqdn.clone())),
             Err(e) => Err(EnrichmentError::SmtpLookupError {
                 domain: self.fqdn.clone(),
                 error: anyhow::Error::msg(e),
