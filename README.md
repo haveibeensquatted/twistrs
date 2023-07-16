@@ -1,4 +1,4 @@
-# Twistr — ![Rust](https://github.com/JuxhinDB/twistrs/workflows/Rust/badge.svg?branch=master) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) [![docs](https://docs.rs/twistrs/badge.svg)](https://docs.rs/twistrs/) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) 
+# Twistr — [![Build & Test](https://github.com/JuxhinDB/twistrs/actions/workflows/rust.yml/badge.svg)](https://github.com/JuxhinDB/twistrs/actions/workflows/rust.yml) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) [![docs](https://docs.rs/twistrs/badge.svg)](https://docs.rs/twistrs/) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) 
 
 <img align="left" width="20%" height="20%" src="res/logo-x1024.png">
 
@@ -93,11 +93,8 @@ async fn main() {
 - [x] WhoIs Lookup
 
 #### Miscellaneous
-
-- [x] Benchmarking
-- [x] Concurrent
 - [x] [Blog post](https://blog.digital-horror.com/twistrs)
-- [x] [Crates.io](https://crates.io/crates/twistrs)
+- [x] [HaveIBeenSquatted](https://haveibeensquatted.com/) 
 
 ---
 
