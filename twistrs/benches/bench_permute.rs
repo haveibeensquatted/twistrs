@@ -7,7 +7,7 @@ fn bitsquatting(domain: &Domain) {
 }
 
 fn homoglyph(domain: &Domain) {
-    domain.homoglyph().for_each(drop)
+    domain.homoglyph().unwrap().for_each(drop)
 }
 
 fn hyphentation(domain: &Domain) {

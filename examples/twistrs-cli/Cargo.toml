@@ -10,3 +10,4 @@ clap = "3.2.10"
 colored = "1.9.3"
 tokio = { version = "0.2", features = ["full"] }
 futures = { version = "0.3", features = ["thread-pool"] }
+anyhow = "1.0.71"

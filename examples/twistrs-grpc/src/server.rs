@@ -1,3 +1,5 @@
+mod domain_enumeration;
+
 use tokio::sync::mpsc;
 
 use tonic::{transport::Server, Request, Response, Status};
@@ -6,10 +8,7 @@ use twistrs::enrich::DomainMetadata;
 use twistrs::permutate::Domain;
 
 use domain_enumeration::domain_enumeration_server::{DomainEnumeration, DomainEnumerationServer};
-
 use domain_enumeration::{DomainEnumerationResponse, Fqdn, MxCheckResponse};
-
-mod domain_enumeration;
 
 #[derive(Default)]
 pub struct DomainEnumerationService {}
@@ -25,7 +24,7 @@ impl DomainEnumeration for DomainEnumerationService {
     ) -> Result<Response<Self::SendDnsResolutionStream>, Status> {
         let (tx, rx) = mpsc::channel(64);
 
-        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all() {
+        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
             let domain_metadata = DomainMetadata::new(permutation.clone());
             let mut tx = tx.clone();
 
@@ -62,7 +61,7 @@ impl DomainEnumeration for DomainEnumerationService {
     ) -> Result<Response<Self::SendMxCheckStream>, Status> {
         let (tx, rx) = mpsc::channel(64);
 
-        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all() {
+        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
             let domain_metadata = DomainMetadata::new(permutation.clone());
             let mut tx = tx.clone();
 

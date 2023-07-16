@@ -18,9 +18,9 @@
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
 use crate::constants::{ASCII_LOWER, HOMOGLYPHS, IDNA_FILTER_REGEX, KEYBOARD_LAYOUTS, VOWELS};
+use crate::error::Error;
 
 use std::collections::HashSet;
-use std::fmt;
 
 use addr::parser::DomainName;
 use addr::psl::List;
@@ -31,9 +31,6 @@ use serde::Serialize;
 // Include further constants such as dictionaries that are
 // generated during compile time.
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
-
-/// Temporary type-alias over `EnrichmentError`.
-type Result<T> = std::result::Result<T, PermutationError>;
 
 /// Wrapper around an FQDN to perform permutations against.
 #[derive(Default, Debug, Serialize)]
@@ -48,34 +45,43 @@ pub struct Domain<'a> {
     domain: String,
 }
 
-#[deprecated(
-    since = "0.1.0",
-    note = "Prone to be removed in the future, does not currently provide any context."
-)]
-#[derive(Copy, Clone, Debug)]
-pub struct PermutationError;
+#[derive(Clone, thiserror::Error, Debug)]
+pub enum PermutationError {
+    #[error("invalid domain name, (expected {expected:?}, found {found:?})")]
+    InvalidDomain { expected: String, found: String },
 
-impl fmt::Display for PermutationError {
-    // @CLEANUP(jdb): Make this something meaningful, if it needs to be
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "")
-    }
+    #[error("error generating homoglyph permutation (domain {domain:?}, homoglyph {homoglyph:?})")]
+    InvalidHomoglyph { domain: String, homoglyph: String },
 }
 
 impl<'a> Domain<'a> {
     /// Wrap a desired FQDN into a `Domain` container. Internally
     /// will perform additional operations to break the domain into
     /// one or more chunks to be used during domain permutations.
-    pub fn new(fqdn: &'a str) -> Result<Domain<'a>> {
-        let parsed_domain = List.parse_domain_name(fqdn).map_err(|_| PermutationError)?;
-        let root_domain = parsed_domain.root().ok_or(PermutationError)?;
+    pub fn new(fqdn: &'a str) -> Result<Domain<'a>, Error> {
+        let parsed_domain =
+            List.parse_domain_name(fqdn)
+                .map_err(|_| PermutationError::InvalidDomain {
+                    expected: "valid domain name that can be parsed".to_string(),
+                    found: fqdn.to_string(),
+                })?;
+        let root_domain = parsed_domain
+            .root()
+            .ok_or(PermutationError::InvalidDomain {
+                expected: "valid domain name with a root domain".to_string(),
+                found: fqdn.to_string(),
+            })?;
         let tld = parsed_domain.suffix().to_string();
         let domain = root_domain
             .find('.')
             .and_then(|offset| root_domain.get(..offset))
             // this should never error out since `root_domain` is a valid domain name
-            .ok_or(PermutationError)?
+            .ok_or(PermutationError::InvalidDomain {
+                expected: "valid domain name with a root domain".to_string(),
+                found: fqdn.to_string(),
+            })?
             .to_string();
+
         Ok(Domain { fqdn, tld, domain })
     }
 
@@ -86,8 +92,9 @@ impl<'a> Domain<'a> {
     ///
     /// Any future permutations will also be included into this function call
     /// without any changes required from any client implementations.
-    pub fn all(&self) -> impl Iterator<Item = String> + '_ {
-        self.addition()
+    pub fn all(&self) -> Result<impl Iterator<Item = String> + '_, Error> {
+        Ok(self
+            .addition()
             .chain(self.bitsquatting())
             .chain(self.hyphentation())
             .chain(self.insertion())
@@ -99,7 +106,7 @@ impl<'a> Domain<'a> {
             .chain(self.vowel_swap())
             .chain(self.keyword())
             .chain(self.tld())
-            .chain(self.homoglyph())
+            .chain(self.homoglyph()?))
     }
 
     /// Add every ASCII lowercase character between the Domain
@@ -162,7 +169,7 @@ impl<'a> Domain<'a> {
 
     /// Permutation method that replaces ASCII characters with multiple homoglyphs
     /// similar to the respective ASCII character.
-    pub fn homoglyph(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn homoglyph(&self) -> Result<impl Iterator<Item = String> + '_, Error> {
         // @CLEANUP(jdb): Tidy this entire mess up
         let mut result_first_pass: HashSet<String> = HashSet::new();
         let mut result_second_pass: HashSet<String> = HashSet::new();
@@ -175,7 +182,13 @@ impl<'a> Domain<'a> {
                 let mut j = 0;
 
                 while j < ws {
-                    let c: char = win.chars().nth(j).unwrap();
+                    let c: char = win
+                        .chars()
+                        .nth(j)
+                        .ok_or(PermutationError::InvalidHomoglyph {
+                            domain: self.fqdn.to_string(),
+                            homoglyph: win.to_string(),
+                        })?;
 
                     if let Some(glyph) = HOMOGLYPHS.get(&c) {
                         for g in glyph.chars().collect::<Vec<char>>() {
@@ -206,7 +219,13 @@ impl<'a> Domain<'a> {
                     let mut j = 0;
 
                     while j < ws {
-                        let c: char = win.chars().nth(j).unwrap();
+                        let c: char =
+                            win.chars()
+                                .nth(j)
+                                .ok_or(PermutationError::InvalidHomoglyph {
+                                    domain: self.fqdn.to_string(),
+                                    homoglyph: win.to_string(),
+                                })?;
 
                         if let Some(glyph) = HOMOGLYPHS.get(&c) {
                             for g in glyph.chars().collect::<Vec<char>>() {
@@ -226,7 +245,9 @@ impl<'a> Domain<'a> {
             }
         }
 
-        Domain::filter_domains((&result_first_pass | &result_second_pass).into_iter())
+        Ok(Domain::filter_domains(
+            (&result_first_pass | &result_second_pass).into_iter(),
+        ))
     }
 
     /// Permutation method that inserts hyphens (i.e. `-`) between each
@@ -438,7 +459,7 @@ mod tests {
     #[test]
     fn test_all_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = d.all().collect();
+        let permutations: Vec<_> = d.all().unwrap().collect();
 
         assert!(permutations.len() > 0);
     }
@@ -462,7 +483,7 @@ mod tests {
     #[test]
     fn test_homoglyph_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.homoglyph().collect());
+        let permutations: Vec<_> = dbg!(d.homoglyph().unwrap().collect());
 
         assert!(permutations.len() > 0);
     }

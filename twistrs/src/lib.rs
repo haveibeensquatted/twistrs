@@ -124,4 +124,5 @@ extern crate lazy_static;
 
 pub mod constants;
 pub mod enrich;
+pub mod error;
 pub mod permutate;

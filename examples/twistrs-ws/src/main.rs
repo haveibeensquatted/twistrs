@@ -93,8 +93,8 @@ async fn user_message(my_id: usize, msg: Message, users: &Users) {
             eprintln!("initiating dns resolution checks for user: {}", my_id);
 
             let domain = Domain::new(msg).unwrap();
-            let mut domain_permutations = domain.all().collect::<HashSet<String>>();
-            domain_permutations.insert(String::from(&(*domain.fqdn)));
+            let mut domain_permutations = domain.all().unwrap().collect::<HashSet<String>>();
+            domain_permutations.insert(String::from(domain.fqdn));
 
             for v in domain_permutations.into_iter() {
                 let domain_metadata = DomainMetadata::new(v.clone());
