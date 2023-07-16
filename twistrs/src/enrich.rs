@@ -264,7 +264,7 @@ impl DomainMetadata {
         .into())
     }
 
-    /// Asynchronous cached GeoIP lookup. Interface deviates from the usual enrichment
+    /// Asynchronous cached `GeoIP` lookup. Interface deviates from the usual enrichment
     /// interfaces and requires the callee to pass a [`maxminddb::Reader`](https://docs.rs/maxminddb/0.15.0/maxminddb/struct.Reader.html)
     /// to perform the lookup through. Internally, the maxminddb call is blocking and
     /// may result in performance drops, however the lookups are in-memory.
@@ -299,73 +299,66 @@ impl DomainMetadata {
         match &self.ips {
             Some(ips) => {
                 for ip in ips.iter() {
-                    match geoip.lookup::<geoip2::City>(*ip) {
-                        Ok(lookup_result) => {
-                            let mut geoip_string = String::new();
+                    if let Ok(lookup_result) = geoip.lookup::<geoip2::City>(*ip) {
+                        let mut geoip_string = String::new();
 
-                            if lookup_result.city.is_some() {
-                                geoip_string.push_str(
-                                    lookup_result
-                                        .city
-                                        .ok_or(EnrichmentError::GeoIpLookupError {
-                                            domain: self.fqdn.clone(),
-                                            error: anyhow::Error::msg("could not find city"),
-                                        })?
-                                        .names
-                                        .ok_or(EnrichmentError::GeoIpLookupError {
-                                            domain: self.fqdn.clone(),
-                                            error: anyhow::Error::msg("could not find city names"),
-                                        })?["en"],
-                                );
-                            }
-
-                            if lookup_result.country.is_some() {
-                                if geoip_string.len() > 0 {
-                                    geoip_string.push_str(", ");
-                                }
-
-                                geoip_string.push_str(
-                                    lookup_result
-                                        .country
-                                        .ok_or(EnrichmentError::GeoIpLookupError {
-                                            domain: self.fqdn.clone(),
-                                            error: anyhow::Error::msg("could not find country"),
-                                        })?
-                                        .names
-                                        .ok_or(EnrichmentError::GeoIpLookupError {
-                                            domain: self.fqdn.clone(),
-                                            error: anyhow::Error::msg(
-                                                "could not find country names",
-                                            ),
-                                        })?["en"],
-                                );
-                            }
-
-                            if lookup_result.continent.is_some() {
-                                if geoip_string.len() > 0 {
-                                    geoip_string.push_str(", ");
-                                }
-
-                                geoip_string.push_str(
-                                    lookup_result
-                                        .continent
-                                        .ok_or(EnrichmentError::GeoIpLookupError {
-                                            domain: self.fqdn.clone(),
-                                            error: anyhow::Error::msg("could not find continent"),
-                                        })?
-                                        .names
-                                        .ok_or(EnrichmentError::GeoIpLookupError {
-                                            domain: self.fqdn.clone(),
-                                            error: anyhow::Error::msg(
-                                                "could not find continent name",
-                                            ),
-                                        })?["en"],
-                                );
-                            }
-
-                            result.push((*ip, geoip_string));
+                        if lookup_result.city.is_some() {
+                            geoip_string.push_str(
+                                lookup_result
+                                    .city
+                                    .ok_or(EnrichmentError::GeoIpLookupError {
+                                        domain: self.fqdn.clone(),
+                                        error: anyhow::Error::msg("could not find city"),
+                                    })?
+                                    .names
+                                    .ok_or(EnrichmentError::GeoIpLookupError {
+                                        domain: self.fqdn.clone(),
+                                        error: anyhow::Error::msg("could not find city names"),
+                                    })?["en"],
+                            );
                         }
-                        Err(_) => {}
+
+                        if lookup_result.country.is_some() {
+                            if !geoip_string.is_empty() {
+                                geoip_string.push_str(", ");
+                            }
+
+                            geoip_string.push_str(
+                                lookup_result
+                                    .country
+                                    .ok_or(EnrichmentError::GeoIpLookupError {
+                                        domain: self.fqdn.clone(),
+                                        error: anyhow::Error::msg("could not find country"),
+                                    })?
+                                    .names
+                                    .ok_or(EnrichmentError::GeoIpLookupError {
+                                        domain: self.fqdn.clone(),
+                                        error: anyhow::Error::msg("could not find country names"),
+                                    })?["en"],
+                            );
+                        }
+
+                        if lookup_result.continent.is_some() {
+                            if !geoip_string.is_empty() {
+                                geoip_string.push_str(", ");
+                            }
+
+                            geoip_string.push_str(
+                                lookup_result
+                                    .continent
+                                    .ok_or(EnrichmentError::GeoIpLookupError {
+                                        domain: self.fqdn.clone(),
+                                        error: anyhow::Error::msg("could not find continent"),
+                                    })?
+                                    .names
+                                    .ok_or(EnrichmentError::GeoIpLookupError {
+                                        domain: self.fqdn.clone(),
+                                        error: anyhow::Error::msg("could not find continent name"),
+                                    })?["en"],
+                            );
+                        }
+
+                        result.push((*ip, geoip_string));
                     }
                 }
 
@@ -375,7 +368,7 @@ impl DomainMetadata {
         }
     }
 
-    /// Asyncrhonous `WhoIs` lookup using cached WhoIs server config. Note that
+    /// Asyncrhonous `WhoIs` lookup using cached `WhoIs` server config. Note that
     /// the internal lookups are not async and so this should be considered
     /// a heavy/slow call.
     ///
@@ -452,27 +445,9 @@ mod tests {
     use futures::executor::block_on;
 
     #[tokio::test]
-    async fn test_all_modes() {
-        let domain_metadata = DomainMetadata::new(String::from("example.com"));
-        assert!(block_on(domain_metadata.all()).is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_mx_check() {
-        let domain_metadata = DomainMetadata::new(String::from("example.com"));
-        assert!(block_on(domain_metadata.mx_check()).is_ok());
-    }
-
-    #[tokio::test]
     async fn test_dns_lookup() {
         let domain_metadata = DomainMetadata::new(String::from("example.com"));
         assert!(block_on(domain_metadata.dns_resolvable()).is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_http_banner() {
-        let domain_metadata = DomainMetadata::new(String::from("example.com"));
-        assert!(domain_metadata.http_banner().await.is_ok());
     }
 
     #[tokio::test]

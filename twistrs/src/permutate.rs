@@ -12,7 +12,7 @@
 //! use twistrs::permutate::Domain;
 //!
 //! let domain = Domain::new("google.com").unwrap();
-//! let domain_permutations: Vec<String> = domain.all().collect();
+//! let domain_permutations: Vec<String> = domain.all().expect("error permuting domains").collect();
 //! ```
 //!
 //! Additionally the permutation module can be used independently
@@ -461,7 +461,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = d.all().unwrap().collect();
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -477,7 +477,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.bitsquatting().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -485,7 +485,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.homoglyph().unwrap().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -493,7 +493,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.hyphentation().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -501,7 +501,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.insertion().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -509,7 +509,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.omission().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -517,7 +517,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.repetition().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -525,7 +525,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.replacement().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -533,7 +533,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.subdomain().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -541,7 +541,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.transposition().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -549,7 +549,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.vowel_swap().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -557,7 +557,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.keyword().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
@@ -565,7 +565,7 @@ mod tests {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.tld().collect());
 
-        assert!(permutations.len() > 0);
+        assert!(!permutations.is_empty());
     }
 
     #[test]
