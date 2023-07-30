@@ -367,7 +367,14 @@ impl DomainMetadata {
                     }
                 }
 
-                Ok(DomainMetadata::new(self.fqdn.clone()))
+                Ok(DomainMetadata {
+                    fqdn: self.fqdn.clone(),
+                    ips: None,
+                    smtp: None,
+                    http_banner: None,
+                    geo_ip_lookups: Some(result),
+                    who_is_lookup: None,
+                })
             }
             None => Ok(DomainMetadata::new(self.fqdn.clone())),
         }
@@ -394,25 +401,31 @@ impl DomainMetadata {
     pub async fn whois_lookup(&self) -> Result<DomainMetadata, Error> {
         let mut result = DomainMetadata::new(self.fqdn.clone());
 
-        let whois_lookup_options = WhoIsLookupOptions::from_string(&self.fqdn).map_err(|e| {
-            EnrichmentError::WhoIsLookupError {
-                domain: self.fqdn.to_string(),
-                error: e,
-            }
-        })?;
+        let mut whois_lookup_options =
+            WhoIsLookupOptions::from_string(&self.fqdn).map_err(|e| {
+                EnrichmentError::WhoIsLookupError {
+                    domain: self.fqdn.to_string(),
+                    error: e,
+                }
+            })?;
 
-        result.fqdn = WHOIS
-            .lookup(whois_lookup_options)
-            .map_err(|e| EnrichmentError::WhoIsLookupError {
-                domain: self.fqdn.to_string(),
-                error: e,
-            })?
-            .split("\r\n")
-            // The only entries we care about are the ones that start with 3 spaces.
-            // Ideally the whois_rust library would have parsed this nicely for us.
-            .filter(|s| s.starts_with("   "))
-            .collect::<Vec<&str>>()
-            .join("\n");
+        whois_lookup_options.timeout = Some(std::time::Duration::from_secs(5));
+        whois_lookup_options.follow = 1; // Only allow at most one redirect
+
+        result.who_is_lookup = Some(
+            WHOIS
+                .lookup(whois_lookup_options)
+                .map_err(|e| EnrichmentError::WhoIsLookupError {
+                    domain: self.fqdn.to_string(),
+                    error: e,
+                })?
+                .split("\r\n")
+                // The only entries we care about are the ones that start with 3 spaces.
+                // Ideally the whois_rust library would have parsed this nicely for us.
+                .filter(|s| s.starts_with("   "))
+                .collect::<Vec<&str>>()
+                .join("\n"),
+        );
 
         Ok(result)
     }

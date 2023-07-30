@@ -1,5 +1,13 @@
 # CHANGELOG.md
 
+## 0.5.2 (2023-07-30)
+
+Fix:
+
+  - Fixed bug with whois lookup which was not updating the result into the
+    the correct field;
+  - Fixed bug in geoip lookup to populate the results correctly
+
 ## 0.5.1 (2023-07-30)
 
 Fix:
