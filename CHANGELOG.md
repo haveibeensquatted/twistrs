@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.5.1 (2023-07-30)
+
+Fix:
+
+  - Published crate with missing who-is servers and geoip data
+
 ## 0.5.0 (2023-07-16)
 
 Fix:
