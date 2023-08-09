@@ -1,4 +1,4 @@
-# Twistr — [![Build & Test](https://github.com/JuxhinDB/twistrs/actions/workflows/rust.yml/badge.svg)](https://github.com/JuxhinDB/twistrs/actions/workflows/rust.yml) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) [![docs](https://docs.rs/twistrs/badge.svg)](https://docs.rs/twistrs/) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) [![Discord invite](https://dcbadge.vercel.app/api/server/BDkgRkjn?style=flat)](https://discord.gg/BDkgRkjn)
+# Twistr — [![Build & Test](https://github.com/JuxhinDB/twistrs/actions/workflows/rust.yml/badge.svg)](https://github.com/JuxhinDB/twistrs/actions/workflows/rust.yml) ![Status](https://img.shields.io/static/v1?label=Status&message=beta&color=orange) [![docs](https://docs.rs/twistrs/badge.svg)](https://docs.rs/twistrs/) ![crates.io](https://img.shields.io/crates/v/twistrs.svg) [![Discord invite](https://dcbadge.vercel.app/api/server/w8tksBQQq5?style=flat)](https://discord.gg/w8tksBQQq5)
 
 <img align="left" width="20%" height="20%" src="res/logo-x1024.png">
 
