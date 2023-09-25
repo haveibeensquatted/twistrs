@@ -34,15 +34,38 @@ include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
 /// Wrapper around an FQDN to perform permutations against.
 #[derive(Default, Debug, Serialize)]
-pub struct Domain<'a> {
+pub struct Domain {
     /// The domain FQDN to generate permutations from.
-    pub fqdn: &'a str,
+    pub fqdn: String,
 
     /// The top-level domain of the FQDN (e.g. `.com`).
     tld: String,
 
     /// The remainder of the domain (e.g. `google`).
     domain: String,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Permutation {
+    domain: Domain,
+    kind: PermutationKind,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PermutationKind {
+    Addition,
+    Bitsquatting,
+    Hyphenation,
+    Insertion,
+    Omission,
+    Repetition,
+    Replacement,
+    Subdomain,
+    Transposition,
+    VowelSwap,
+    Keyword,
+    Tld,
+    Homoglyph,
 }
 
 #[derive(Clone, thiserror::Error, Debug)]
@@ -54,11 +77,11 @@ pub enum PermutationError {
     InvalidHomoglyph { domain: String, homoglyph: String },
 }
 
-impl<'a> Domain<'a> {
+impl Domain {
     /// Wrap a desired FQDN into a `Domain` container. Internally
     /// will perform additional operations to break the domain into
     /// one or more chunks to be used during domain permutations.
-    pub fn new(fqdn: &'a str) -> Result<Domain<'a>, Error> {
+    pub fn new(fqdn: &str) -> Result<Domain, Error> {
         let parsed_domain =
             List.parse_domain_name(fqdn)
                 .map_err(|_| PermutationError::InvalidDomain {
@@ -82,7 +105,11 @@ impl<'a> Domain<'a> {
             })?
             .to_string();
 
-        Ok(Domain { fqdn, tld, domain })
+        Ok(Domain {
+            fqdn: fqdn.to_string(),
+            tld,
+            domain,
+        })
     }
 
     /// Generate any and all possible domain permutations for a given `Domain`.
@@ -111,12 +138,14 @@ impl<'a> Domain<'a> {
 
     /// Add every ASCII lowercase character between the Domain
     /// (e.g. `google`) and top-level domain (e.g. `.com`).
-    pub fn addition(&self) -> impl Iterator<Item = String> + '_ {
-        Domain::filter_domains(
-            ASCII_LOWER
-                .iter()
-                .map(move |c| format!("{}{}.{}", self.domain, c, self.tld)),
-        )
+    pub fn addition(&self) -> impl Iterator<Item = Permutation> + '_ {
+        Domain::filter_domains(ASCII_LOWER.iter().map(move |c| {
+            let fqdn = format!("{}{}.{}", self.domain, c, self.tld);
+            Permutation {
+                domain: Domain::new(fqdn.as_str()).unwrap(),
+                kind: PermutationKind::Addition,
+            }
+        }))
     }
 
     /// Following implementation takes inspiration from the following content:
@@ -136,7 +165,7 @@ impl<'a> Domain<'a> {
     ///  10000000 ^ chr
     ///
     /// Then check if the resulting bit operation falls within ASCII range.
-    pub fn bitsquatting(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn bitsquatting(&self) -> impl Iterator<Item = Permutation> + '_ {
         let permutations = self
             .fqdn
             .chars()
@@ -162,14 +191,18 @@ impl<'a> Domain<'a> {
                     }
                 })
             })
-            .flatten();
+            .flatten()
+            .map(move |fqdn| Permutation {
+                domain: Domain::new(fqdn.as_str()).unwrap(),
+                kind: PermutationKind::Bitsquatting,
+            });
 
         Domain::filter_domains(permutations)
     }
 
     /// Permutation method that replaces ASCII characters with multiple homoglyphs
     /// similar to the respective ASCII character.
-    pub fn homoglyph(&self) -> Result<impl Iterator<Item = String> + '_, Error> {
+    pub fn homoglyph(&self) -> Result<impl Iterator<Item = Permutation> + '_, Error> {
         // @CLEANUP(jdb): Tidy this entire mess up
         let mut result_first_pass: HashSet<String> = HashSet::new();
         let mut result_second_pass: HashSet<String> = HashSet::new();
@@ -244,6 +277,22 @@ impl<'a> Domain<'a> {
                 }
             }
         }
+
+        let result_first_pass = result_first_pass
+            .into_iter()
+            .map(move |fqdn| Permutation {
+                domain: Domain::new(fqdn.as_str()).unwrap(),
+                kind: PermutationKind::Homoglyph,
+            })
+            .collect::<HashSet<Permutation>>();
+
+        let result_second_pass = result_second_pass
+            .into_iter()
+            .map(move |fqdn| Permutation {
+                domain: Domain::new(fqdn.as_str()).unwrap(),
+                kind: PermutationKind::Homoglyph,
+            })
+            .collect::<HashSet<Permutation>>();
 
         Ok(Domain::filter_domains(
             (&result_first_pass | &result_second_pass).into_iter(),
@@ -437,12 +486,16 @@ impl<'a> Domain<'a> {
     ///
     /// 2nd pass - simple regular expression pass to see if the resulting domains
     /// are indeed valid domains.
-    pub fn filter_domains<T>(permutations: T) -> impl Iterator<Item = String>
+    pub fn filter_domains<P>(permutations: P) -> impl Iterator<Item = Permutation>
     where
-        T: Iterator<Item = String>,
+        P: Iterator<Item = Permutation>,
     {
-        permutations
-            .filter(|x| is_valid_punycode(x) && IDNA_FILTER_REGEX.is_match(x).unwrap_or(false))
+        permutations.filter(|x| {
+            is_valid_punycode(x.domain.fqdn.as_str())
+                && IDNA_FILTER_REGEX
+                    .is_match(x.domain.fqdn.as_str())
+                    .unwrap_or(false)
+        })
     }
 }
 
