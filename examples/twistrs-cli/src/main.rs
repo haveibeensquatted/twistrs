@@ -3,7 +3,7 @@ use colored::*;
 
 use tokio::sync::mpsc;
 use twistrs::enrich::DomainMetadata;
-use twistrs::permutate::Domain;
+use twistrs::permutate::{Domain, Permutation};
 
 use anyhow::Result;
 use std::collections::HashSet;
@@ -21,15 +21,13 @@ async fn main() -> Result<()> {
 
     let domain = Domain::new(matches.value_of("domain").unwrap()).unwrap();
 
-    let mut domain_permutations = domain.all()?.collect::<HashSet<String>>();
+    let domain_permutations = domain.all()?.collect::<HashSet<Permutation>>();
     let domain_permutation_count = domain_permutations.len();
-
-    domain_permutations.insert(String::from(domain.fqdn));
 
     let (tx, mut rx) = mpsc::channel(5000);
 
     for (i, v) in domain_permutations.into_iter().enumerate() {
-        let domain_metadata = DomainMetadata::new(v.clone());
+        let domain_metadata = DomainMetadata::new(v.domain.fqdn.clone());
         let mut tx = tx.clone();
 
         tokio::spawn(async move {

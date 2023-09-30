@@ -11,7 +11,7 @@ use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
 use twistrs::enrich::DomainMetadata;
-use twistrs::permutate::Domain;
+use twistrs::permutate::{Domain, Permutation};
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
@@ -93,11 +93,10 @@ async fn user_message(my_id: usize, msg: Message, users: &Users) {
             eprintln!("initiating dns resolution checks for user: {}", my_id);
 
             let domain = Domain::new(msg).unwrap();
-            let mut domain_permutations = domain.all().unwrap().collect::<HashSet<String>>();
-            domain_permutations.insert(String::from(domain.fqdn));
+            let domain_permutations = domain.all().unwrap().collect::<HashSet<Permutation>>();
 
             for v in domain_permutations.into_iter() {
-                let domain_metadata = DomainMetadata::new(v.clone());
+                let domain_metadata = DomainMetadata::new(v.domain.fqdn.clone());
                 let tx = tx.clone();
 
                 tokio::spawn(async move {
