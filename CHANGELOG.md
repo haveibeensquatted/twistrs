@@ -1,5 +1,24 @@
 # CHANGELOG.md
 
+## 0.6.0 (2023-09-30)
+
+### BREAKING
+
+All permutation functions now return a new `Permutation` struct that
+contains both the domain permutation as well as the kind of that 
+was performed (`PermutationKind`).
+
+Features:
+
+  - Added `Permutation` and `PermutationKind` structs to to the 
+    `permutate` module.
+
+Fix:
+
+  - No longer aggressively parsing domains internally causing tasks 
+    to panic. Instead, domains are `.filter_map`'ed internally to 
+    only keep valid domains.
+
 ## 0.5.2 (2023-07-30)
 
 Fix:
