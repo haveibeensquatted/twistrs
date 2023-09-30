@@ -25,7 +25,7 @@ impl DomainEnumeration for DomainEnumerationService {
         let (tx, rx) = mpsc::channel(64);
 
         for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
-            let domain_metadata = DomainMetadata::new(permutation.clone());
+            let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
             let mut tx = tx.clone();
 
             // Spawn DNS Resolution check
@@ -34,7 +34,7 @@ impl DomainEnumeration for DomainEnumerationService {
                     if let Some(ips) = metadata.ips {
                         if tx
                             .send(Ok(DomainEnumerationResponse {
-                                fqdn: permutation.clone().to_string(),
+                                fqdn: permutation.domain.fqdn.to_string(),
                                 ips: ips.into_iter().map(|x| format!("{}", x)).collect(),
                             }))
                             .await
@@ -62,7 +62,7 @@ impl DomainEnumeration for DomainEnumerationService {
         let (tx, rx) = mpsc::channel(64);
 
         for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
-            let domain_metadata = DomainMetadata::new(permutation.clone());
+            let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
             let mut tx = tx.clone();
 
             // Spawn DNS Resolution check
@@ -71,7 +71,7 @@ impl DomainEnumeration for DomainEnumerationService {
                     if let Some(smtp) = metadata.smtp {
                         if tx
                             .send(Ok(MxCheckResponse {
-                                fqdn: permutation.clone().to_string(),
+                                fqdn: permutation.domain.fqdn.to_string(),
                                 is_positive: smtp.is_positive,
                                 message: smtp.message,
                             }))

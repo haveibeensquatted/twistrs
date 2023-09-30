@@ -47,8 +47,8 @@ pub struct Domain {
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq)]
 pub struct Permutation {
-    domain: Domain,
-    kind: PermutationKind,
+    pub domain: Domain,
+    pub kind: PermutationKind,
 }
 
 #[derive(Clone, Copy, Hash, Debug, Eq, PartialEq)]
@@ -204,14 +204,12 @@ impl Domain {
     /// similar to the respective ASCII character.
     pub fn homoglyph(&self) -> Result<impl Iterator<Item = Permutation> + '_, Error> {
         // @CLEANUP(jdb): Tidy this entire mess up
-        let mut result_first_pass: HashSet<String> = HashSet::new();
-        let mut result_second_pass: HashSet<String> = HashSet::new();
-
-        let fqdn = self.fqdn.to_string().chars().collect::<Vec<char>>();
+        let mut result_first_pass: HashSet<Permutation> = HashSet::new();
+        let mut result_second_pass: HashSet<Permutation> = HashSet::new();
 
         for ws in 1..self.fqdn.len() {
             for i in 0..(self.fqdn.len() - ws) + 1 {
-                let win: String = fqdn[i..i + ws].iter().collect();
+                let win: String = self.fqdn[i..i + ws].to_string().chars().collect();
                 let mut j = 0;
 
                 while j < ws {
@@ -226,12 +224,14 @@ impl Domain {
                     if let Some(glyph) = HOMOGLYPHS.get(&c) {
                         for g in glyph.chars().collect::<Vec<char>>() {
                             let new_win = win.replace(c, &g.to_string());
-                            result_first_pass.insert(format!(
-                                "{}{}{}",
-                                &self.fqdn[..i],
-                                &new_win,
-                                &self.fqdn[i + ws..]
-                            ));
+
+                            let fqdn =
+                                format!("{}{}{}", &self.fqdn[..i], &new_win, &self.fqdn[i + ws..]);
+
+                            result_first_pass.insert(Permutation {
+                                domain: Domain::new(fqdn.as_str()).unwrap(),
+                                kind: PermutationKind::Homoglyph,
+                            });
                         }
                     }
 
@@ -240,13 +240,14 @@ impl Domain {
             }
         }
 
-        for domain in &result_first_pass {
-            for ws in 1..fqdn.len() {
-                for i in 0..(fqdn.len() - ws) + 1 {
+        for permutation in &result_first_pass {
+            for ws in 1..self.fqdn.len() {
+                for i in 0..(self.fqdn.len() - ws) + 1 {
                     // We need to do this as we are dealing with UTF8 characters
                     // meaning that we cannot simple iterate over single byte
                     // values (as certain characters are composed of two or more)
-                    let win: String = domain.chars().collect::<Vec<char>>()[i..i + ws]
+                    let win: String = permutation.domain.fqdn.chars().collect::<Vec<char>>()
+                        [i..i + ws]
                         .iter()
                         .collect();
                     let mut j = 0;
@@ -263,12 +264,16 @@ impl Domain {
                         if let Some(glyph) = HOMOGLYPHS.get(&c) {
                             for g in glyph.chars().collect::<Vec<char>>() {
                                 let new_win = win.replace(c, &g.to_string());
-                                result_second_pass.insert(format!(
+                                let fqdn = format!(
                                     "{}{}{}",
                                     &self.fqdn[..i],
                                     &new_win,
                                     &self.fqdn[i + ws..]
-                                ));
+                                );
+                                result_second_pass.insert(Permutation {
+                                    domain: Domain::new(fqdn.as_str()).unwrap(),
+                                    kind: PermutationKind::Homoglyph,
+                                });
                             }
                         }
 
@@ -277,22 +282,6 @@ impl Domain {
                 }
             }
         }
-
-        let result_first_pass = result_first_pass
-            .into_iter()
-            .map(move |fqdn| Permutation {
-                domain: Domain::new(fqdn.as_str()).unwrap(),
-                kind: PermutationKind::Homoglyph,
-            })
-            .collect::<HashSet<Permutation>>();
-
-        let result_second_pass = result_second_pass
-            .into_iter()
-            .map(move |fqdn| Permutation {
-                domain: Domain::new(fqdn.as_str()).unwrap(),
-                kind: PermutationKind::Homoglyph,
-            })
-            .collect::<HashSet<Permutation>>();
 
         Ok(Domain::filter_domains(
             (&result_first_pass | &result_second_pass).into_iter(),

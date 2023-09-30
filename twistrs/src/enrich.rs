@@ -175,7 +175,7 @@ impl DomainMetadata {
         );
 
         let stream = BufStream::new(
-            TcpStream::connect(&format!("{}:25", self.fqdn.to_string()))
+            TcpStream::connect(&format!("{}:25", self.fqdn))
                 .await
                 .map_err(|e| EnrichmentError::SmtpLookupError {
                     domain: self.fqdn.clone(),
