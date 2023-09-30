@@ -32,7 +32,7 @@
 //!     let (tx, mut rx) = mpsc::channel(1000);
 //!
 //!     for permutation in permutations {
-//!         let domain_metadata = DomainMetadata::new(permutation.clone());
+//!         let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
 //!         let mut tx = tx.clone();
 //!
 //!         tokio::spawn(async move {
