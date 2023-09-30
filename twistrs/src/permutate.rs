@@ -45,13 +45,13 @@ pub struct Domain {
     domain: String,
 }
 
-#[derive(Clone, Hash, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
 pub struct Permutation {
     pub domain: Domain,
     pub kind: PermutationKind,
 }
 
-#[derive(Clone, Copy, Hash, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Serialize, Hash, Debug, Eq, PartialEq)]
 pub enum PermutationKind {
     Addition,
     Bitsquatting,

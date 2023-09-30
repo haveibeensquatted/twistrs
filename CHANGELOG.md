@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.6.1 (2023-09-30)
+
+Fix: 
+
+  - Add `Serialize` trait to `Permutation` and `PermutationKind`
+
 ## 0.6.0 (2023-09-30)
 
 ### BREAKING
