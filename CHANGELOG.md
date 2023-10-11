@@ -1,5 +1,14 @@
 # CHANGELOG.md
 
+## 0.6.2 (2023-10-11)
+
+Fix:
+
+  - Remove over-aggressive domain filtering to support punycode/homoglpyh
+    domains better;
+  - Fix issue with short domains (e.g., `ox.ac.uk`) that result in zero
+    permutation.
+
 ## 0.6.1 (2023-09-30)
 
 Fix: 
