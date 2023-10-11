@@ -17,14 +17,13 @@
 //!
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
-use crate::constants::{ASCII_LOWER, HOMOGLYPHS, IDNA_FILTER_REGEX, KEYBOARD_LAYOUTS, VOWELS};
+use crate::constants::{ASCII_LOWER, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
 use crate::error::Error;
 
 use std::collections::HashSet;
 
 use addr::parser::DomainName;
 use addr::psl::List;
-use idna::punycode;
 use itertools::Itertools;
 use serde::Serialize;
 
@@ -95,21 +94,21 @@ impl Domain {
                 found: fqdn.to_string(),
             })?;
         let tld = parsed_domain.suffix().to_string();
-        let domain = root_domain
-            .find('.')
-            .and_then(|offset| root_domain.get(..offset))
-            // this should never error out since `root_domain` is a valid domain name
-            .ok_or(PermutationError::InvalidDomain {
-                expected: "valid domain name with a root domain".to_string(),
-                found: fqdn.to_string(),
-            })?
-            .to_string();
-
-        Ok(Domain {
+        let domain = Domain {
             fqdn: fqdn.to_string(),
             tld,
-            domain,
-        })
+            domain: root_domain
+                .find('.')
+                .and_then(|offset| root_domain.get(..offset))
+                // this should never error out since `root_domain` is a valid domain name
+                .ok_or(PermutationError::InvalidDomain {
+                    expected: "valid domain name with a root domain".to_string(),
+                    found: fqdn.to_string(),
+                })?
+                .to_string(),
+        };
+
+        Ok(domain)
     }
 
     /// Generate any and all possible domain permutations for a given `Domain`.
@@ -139,7 +138,7 @@ impl Domain {
     /// Add every ASCII lowercase character between the Domain
     /// (e.g. `google`) and top-level domain (e.g. `.com`).
     pub fn addition(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(ASCII_LOWER.iter().filter_map(move |c| {
+        ASCII_LOWER.iter().filter_map(move |c| {
             let fqdn = format!("{}{}.{}", self.domain, c, self.tld);
 
             if let Ok(domain) = Domain::new(fqdn.as_str()) {
@@ -150,7 +149,7 @@ impl Domain {
             } else {
                 None
             }
-        }))
+        })
     }
 
     /// Following implementation takes inspiration from the following content:
@@ -208,7 +207,7 @@ impl Domain {
                 }
             });
 
-        Domain::filter_domains(permutations)
+        permutations
     }
 
     /// Permutation method that replaces ASCII characters with multiple homoglyphs
@@ -299,73 +298,67 @@ impl Domain {
             }
         }
 
-        Ok(Domain::filter_domains(
-            (&result_first_pass | &result_second_pass).into_iter(),
-        ))
+        Ok((&result_first_pass | &result_second_pass).into_iter())
     }
 
     /// Permutation method that inserts hyphens (i.e. `-`) between each
     /// character in the domain where valid.
     pub fn hyphentation(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(
-            self.fqdn
-                .chars()
-                .skip(1)
-                .enumerate()
-                .filter_map(move |(i, _)| {
-                    let mut permutation = self.fqdn.to_string();
-                    permutation.insert(i, '-');
+        self.fqdn
+            .chars()
+            .skip(1)
+            .enumerate()
+            .filter_map(move |(i, _)| {
+                let mut permutation = self.fqdn.to_string();
+                permutation.insert(i, '-');
 
-                    if let Ok(domain) = Domain::new(permutation.as_str()) {
-                        Some(Permutation {
-                            domain,
-                            kind: PermutationKind::Hyphenation,
-                        })
-                    } else {
-                        None
-                    }
-                }),
-        )
+                if let Ok(domain) = Domain::new(permutation.as_str()) {
+                    Some(Permutation {
+                        domain,
+                        kind: PermutationKind::Hyphenation,
+                    })
+                } else {
+                    None
+                }
+            })
     }
 
     /// Permutation method that inserts specific characters that are close to
     /// any character in the domain depending on the keyboard (e.g. `Q` next
     /// to `W` in qwerty keyboard layout.
     pub fn insertion(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(
-            self.fqdn
-                .chars()
-                .skip(1) // We don't want to insert at the beginning of the domain...
-                .take(self.fqdn.len() - 2) // ...or at the end of the domain.
-                .enumerate()
-                .flat_map(move |(i, c)| {
-                    KEYBOARD_LAYOUTS.iter().filter_map(move |layout| {
-                        layout
-                            .get(&c) // Option<&[char]>
-                            .map(move |keyboard_chars| {
-                                keyboard_chars.chars().filter_map(move |keyboard_char| {
-                                    let mut permutation = self.fqdn.to_string();
-                                    permutation.insert(i, keyboard_char);
+        self.fqdn
+            .chars()
+            .skip(1) // We don't want to insert at the beginning of the domain...
+            .take(self.fqdn.len() - 2) // ...or at the end of the domain.
+            .enumerate()
+            .flat_map(move |(i, c)| {
+                KEYBOARD_LAYOUTS.iter().filter_map(move |layout| {
+                    layout
+                        .get(&c) // Option<&[char]>
+                        .map(move |keyboard_chars| {
+                            keyboard_chars.chars().filter_map(move |keyboard_char| {
+                                let mut permutation = self.fqdn.to_string();
+                                permutation.insert(i, keyboard_char);
 
-                                    if let Ok(domain) = Domain::new(permutation.as_str()) {
-                                        Some(Permutation {
-                                            domain,
-                                            kind: PermutationKind::Insertion,
-                                        })
-                                    } else {
-                                        None
-                                    }
-                                })
+                                if let Ok(domain) = Domain::new(permutation.as_str()) {
+                                    Some(Permutation {
+                                        domain,
+                                        kind: PermutationKind::Insertion,
+                                    })
+                                } else {
+                                    None
+                                }
                             })
-                    })
+                        })
                 })
-                .flatten(),
-        )
+            })
+            .flatten()
     }
 
     /// Permutation method that selectively removes a character from the domain.
     pub fn omission(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(self.fqdn.chars().enumerate().filter_map(move |(i, _)| {
+        self.fqdn.chars().enumerate().filter_map(move |(i, _)| {
             let mut permutation = self.fqdn.to_string();
             permutation.remove(i);
 
@@ -377,13 +370,13 @@ impl Domain {
             } else {
                 None
             }
-        }))
+        })
     }
 
     /// Permutation method that repeats characters twice provided they are
     /// alphabetic characters (e.g. `google.com` -> `gooogle.com`).
     pub fn repetition(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(self.fqdn.chars().enumerate().filter_map(move |(i, c)| {
+        self.fqdn.chars().enumerate().filter_map(move |(i, c)| {
             if c.is_alphabetic() {
                 let permutation = format!("{}{}{}", &self.fqdn[..=i], c, &self.fqdn[i + 1..]);
 
@@ -396,74 +389,73 @@ impl Domain {
             }
 
             None
-        }))
+        })
     }
 
     /// Permutation method similar to insertion, except that it replaces a given
     /// character with another character in proximity depending on keyboard layout.
     pub fn replacement(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Self::filter_domains(
-            self.fqdn
-                .chars()
-                .skip(1) // We don't want to insert at the beginning of the domain...
-                .take(self.fqdn.len() - 2) // ...or at the end of the domain.
-                .enumerate()
-                .flat_map(move |(i, c)| {
-                    KEYBOARD_LAYOUTS.iter().filter_map(move |layout| {
-                        layout.get(&c).map(move |keyboard_chars| {
-                            keyboard_chars.chars().filter_map(move |keyboard_char| {
-                                let permutation = format!(
-                                    "{}{}{}",
-                                    &self.fqdn[..i],
-                                    keyboard_char,
-                                    &self.fqdn[i + 1..]
-                                );
+        self.fqdn
+            .chars()
+            .skip(1) // We don't want to insert at the beginning of the domain...
+            .take(self.fqdn.len() - 2) // ...or at the end of the domain.
+            .enumerate()
+            .flat_map(move |(i, c)| {
+                KEYBOARD_LAYOUTS.iter().filter_map(move |layout| {
+                    layout.get(&c).map(move |keyboard_chars| {
+                        keyboard_chars.chars().filter_map(move |keyboard_char| {
+                            let permutation = format!(
+                                "{}{}{}",
+                                &self.fqdn[..i],
+                                keyboard_char,
+                                &self.fqdn[i + 1..]
+                            );
 
-                                if let Ok(domain) = Domain::new(permutation.as_str()) {
-                                    Some(Permutation {
-                                        domain,
-                                        kind: PermutationKind::Replacement,
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
+                            if let Ok(domain) = Domain::new(permutation.as_str()) {
+                                Some(Permutation {
+                                    domain,
+                                    kind: PermutationKind::Replacement,
+                                })
+                            } else {
+                                None
+                            }
                         })
                     })
                 })
-                .flatten(),
-        )
+            })
+            .flatten()
     }
 
     pub fn subdomain(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(
-            self.fqdn
-                .chars()
-                .take(self.fqdn.len() - 3)
-                .enumerate()
-                .tuple_windows()
-                .filter_map(move |((_, c1), (i2, c2))| {
-                    if !['-', '.'].iter().all(|x| [c1, c2].contains(x)) {
-                        let permutation = format!("{}.{}", &self.fqdn[..i2], &self.fqdn[i2..]);
+        self.fqdn
+            .chars()
+            .take(self.fqdn.len() - 3)
+            .enumerate()
+            .tuple_windows()
+            .filter_map(move |((_, c1), (i2, c2))| {
+                if !['-', '.'].iter().all(|x| [c1, c2].contains(x)) {
+                    let permutation = format!("{}.{}", &self.fqdn[..i2], &self.fqdn[i2..]);
 
-                        if let Ok(domain) = Domain::new(permutation.as_str()) {
-                            return Some(Permutation {
-                                domain,
-                                kind: PermutationKind::Subdomain,
-                            });
-                        }
+                    if let Ok(domain) = Domain::new(permutation.as_str()) {
+                        return Some(Permutation {
+                            domain,
+                            kind: PermutationKind::Subdomain,
+                        });
                     }
+                }
 
-                    None
-                }),
-        )
+                None
+            })
     }
 
     /// Permutation method that swaps out characters in the domain (e.g.
     /// `google.com` -> `goolge.com`).
     pub fn transposition(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(self.fqdn.chars().enumerate().tuple_windows().filter_map(
-            move |((i1, c1), (i2, c2))| {
+        self.fqdn
+            .chars()
+            .enumerate()
+            .tuple_windows()
+            .filter_map(move |((i1, c1), (i2, c2))| {
                 if c1 != c2 {
                     let permutation =
                         format!("{}{}{}{}", &self.fqdn[..i1], c2, c1, &self.fqdn[i2 + 1..]);
@@ -476,44 +468,37 @@ impl Domain {
                 }
 
                 None
-            },
-        ))
+            })
     }
 
     /// Permutation method that swaps vowels for other vowels (e.g.
     /// `google.com` -> `gougle.com`).
     pub fn vowel_swap(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(
-            self.fqdn
-                .chars()
-                .enumerate()
-                .filter_map(move |(i, c)| {
-                    // FIXME(jdb): Flatten this hideious waterfall of `if` statements
-                    // and `None` returns.
-                    if VOWELS.contains(&c) {
-                        Some(VOWELS.iter().filter_map(move |vowel| {
-                            if *vowel != c {
-                                let permutation =
-                                    format!("{}{}{}", &self.fqdn[..i], vowel, &self.fqdn[i + 1..]);
+        self.fqdn
+            .chars()
+            .enumerate()
+            .filter_map(move |(i, c)| {
+                if VOWELS.contains(&c) {
+                    Some(VOWELS.iter().filter_map(move |vowel| {
+                        let permutation =
+                            format!("{}{}{}", &self.fqdn[..i], vowel, &self.fqdn[i + 1..]);
 
-                                if let Ok(domain) = Domain::new(permutation.as_str()) {
-                                    Some(Permutation {
-                                        domain,
-                                        kind: PermutationKind::VowelSwap,
-                                    })
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        }))
-                    } else {
-                        None
-                    }
-                })
-                .flatten(),
-        )
+                        if *vowel == c {
+                            None
+                        } else if let Ok(domain) = Domain::new(permutation.as_str()) {
+                            Some(Permutation {
+                                domain,
+                                kind: PermutationKind::VowelSwap,
+                            })
+                        } else {
+                            None
+                        }
+                    }))
+                } else {
+                    None
+                }
+            })
+            .flatten()
     }
 
     /// Permutation mode that appends and prepends common keywords to the
@@ -524,7 +509,7 @@ impl Domain {
     /// 3. Append keyword and dash (e.g. `foo.com` -> `foo-word.com`)
     /// 4. Append keyword and dash (e.g. `foo.com` -> `fooword.com`)
     pub fn keyword(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(KEYWORDS.iter().flat_map(move |keyword| {
+        KEYWORDS.iter().flat_map(move |keyword| {
             vec![
                 format!("{}-{}.{}", &self.domain, keyword, &self.tld),
                 format!("{}{}.{}", &self.domain, keyword, &self.tld),
@@ -542,13 +527,13 @@ impl Domain {
 
                 None
             })
-        }))
+        })
     }
 
     /// Permutation method that replaces all TLDs as variations of the
     /// root domain passed.
     pub fn tld(&self) -> impl Iterator<Item = Permutation> + '_ {
-        Domain::filter_domains(TLDS.iter().filter_map(move |tld| {
+        TLDS.iter().filter_map(move |tld| {
             let fqdn = format!("{}.{}", &self.domain, tld);
 
             if let Ok(domain) = Domain::new(fqdn.as_str()) {
@@ -559,35 +544,8 @@ impl Domain {
             }
 
             None
-        }))
-    }
-
-    /// Utility function that filters an iterator of domains that are valid. This
-    /// is performed in a two-pass validation:
-    ///
-    /// 1st pass - validate that the domain is punycode decodable by splitting the
-    /// domain into parts ("."), removing any "xn--" prefixes, and punycode decoding
-    /// the part.
-    ///
-    /// 2nd pass - simple regular expression pass to see if the resulting domains
-    /// are indeed valid domains.
-    pub fn filter_domains<P>(permutations: P) -> impl Iterator<Item = Permutation>
-    where
-        P: Iterator<Item = Permutation>,
-    {
-        permutations.filter(|x| {
-            is_valid_punycode(x.domain.fqdn.as_str())
-                && IDNA_FILTER_REGEX
-                    .is_match(x.domain.fqdn.as_str())
-                    .unwrap_or(false)
         })
     }
-}
-
-fn is_valid_punycode(x: &str) -> bool {
-    x.replace("xn--", "")
-        .split('.')
-        .all(|part| punycode::decode(part).is_some())
 }
 
 #[cfg(test)]
@@ -710,15 +668,15 @@ mod tests {
     fn test_domain_idna_filtering() {
         // Examples taken from IDNA Punycode RFC:
         // https://tools.ietf.org/html/rfc3492#section-7.1
-        let valid_idns: Vec<Permutation> = vec![
+        let idns: Vec<Permutation> = vec![
             // List of invalid domains
             String::from("i1baa7eci9glrd9b2ae1bj0hfcgg6iyaf8o0a1dig0cd"),
             String::from("4dbcagdahymbxekheh6e0a7fei0b"),
             String::from("rpublique-numrique-bwbm"),
             String::from("fiqs8s"),
-            String::from("google.com.acadmie-franaise-npb1a"),
             String::from("acadmie-franaise-npb1a-google.com"),
             // List of valid domains
+            String::from("google.com.acadmie-franaise-npb1a"),
             String::from("acadmie-franaise-npb1a"),
             String::from("google.com"),
             String::from("phishdeck.com"),
@@ -738,11 +696,22 @@ mod tests {
         })
         .collect();
 
-        let filtered_domains: Vec<Permutation> =
-            Domain::filter_domains(valid_idns.into_iter()).collect();
-
+        let filtered_domains: Vec<Permutation> = idns.into_iter().collect();
         dbg!(&filtered_domains);
 
-        assert_eq!(filtered_domains.len(), 5);
+        assert_eq!(filtered_domains.len(), 6);
+    }
+
+    #[test]
+    fn test_domains_empty_permutations_regression() {
+        let domains: Vec<Domain> = vec!["ox.ac.uk", "oxford.ac.uk", "cool.co.nz"]
+            .into_iter()
+            .map(|fqdn| Domain::new(fqdn).unwrap())
+            .collect();
+
+        for domain in domains {
+            let permutations: Vec<_> = dbg!(domain.all().unwrap().collect());
+            assert!(!permutations.is_empty());
+        }
     }
 }

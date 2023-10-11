@@ -1,4 +1,3 @@
-use fancy_regex::Regex;
 use phf::phf_map;
 
 #[cfg(feature = "whois_lookup")]
@@ -12,13 +11,6 @@ use hyper::client::HttpConnector;
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
 lazy_static! {
-
-    /// IDNA filter regex used to reduce number of domain permutations
-    /// that are generated and validated.
-    ///
-    /// The regex is taken from [dnstwist](https://github.com/elceef/dnstwist/blob/5368e465c35355c43d189b093acf41773e869d25/dnstwist.py#L213-L227).
-    pub static ref IDNA_FILTER_REGEX: Regex = Regex::new("(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\\.)+[a-zA-Z]{2,63}\\.?$)").unwrap();
-
     pub static ref KEYBOARD_LAYOUTS: Vec<&'static phf::Map<char, &'static str>> = vec![
         &QWERTY_KEYBOARD_LAYOUT,
         &QWERTZ_KEYBOARD_LAYOUT,
