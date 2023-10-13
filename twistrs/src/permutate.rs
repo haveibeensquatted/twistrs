@@ -38,10 +38,10 @@ pub struct Domain {
     pub fqdn: String,
 
     /// The top-level domain of the FQDN (e.g. `.com`).
-    tld: String,
+    pub tld: String,
 
     /// The remainder of the domain (e.g. `google`).
-    domain: String,
+    pub domain: String,
 }
 
 #[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
