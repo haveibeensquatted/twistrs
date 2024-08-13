@@ -93,22 +93,37 @@ impl Domain {
                 expected: "valid domain name with a root domain".to_string(),
                 found: fqdn.to_string(),
             })?;
-        let tld = parsed_domain.suffix().to_string();
-        let domain = Domain {
-            fqdn: fqdn.to_string(),
-            tld,
-            domain: root_domain
-                .find('.')
-                .and_then(|offset| root_domain.get(..offset))
-                // this should never error out since `root_domain` is a valid domain name
-                .ok_or(PermutationError::InvalidDomain {
-                    expected: "valid domain name with a root domain".to_string(),
-                    found: fqdn.to_string(),
-                })?
-                .to_string(),
-        };
 
-        Ok(domain)
+        let tld = parsed_domain.suffix().to_string();
+
+        // Verify that the TLD is in the list of known TLDs, this requires that
+        // the TLD data list is already ordered, otherwise the result of the
+        // binary search is meaningless. We also assume that all TLDs generated
+        // are lowercase already.
+        if TLDS.binary_search(&tld.as_str()).is_ok() {
+            let domain = Domain {
+                fqdn: fqdn.to_string(),
+                tld,
+                domain: root_domain
+                    .find('.')
+                    .and_then(|offset| root_domain.get(..offset))
+                    // this should never error out since `root_domain` is a valid domain name
+                    .ok_or(PermutationError::InvalidDomain {
+                        expected: "valid domain name with a root domain".to_string(),
+                        found: fqdn.to_string(),
+                    })?
+                    .to_string(),
+            };
+
+            Ok(domain)
+        } else {
+            let err = PermutationError::InvalidDomain {
+                expected: "valid domain tld in the list of accepted tlds globally".to_string(),
+                found: tld,
+            };
+
+            Err(err.into())
+        }
     }
 
     /// Generate any and all possible domain permutations for a given `Domain`.
