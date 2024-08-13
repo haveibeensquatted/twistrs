@@ -690,8 +690,8 @@ mod tests {
             String::from("rpublique-numrique-bwbm"),
             String::from("fiqs8s"),
             String::from("acadmie-franaise-npb1a-google.com"),
-            // List of valid domains
             String::from("google.com.acadmie-franaise-npb1a"),
+            // List of valid domains
             String::from("acadmie-franaise-npb1a"),
             String::from("google.com"),
             String::from("phishdeck.com"),
@@ -714,7 +714,7 @@ mod tests {
         let filtered_domains: Vec<Permutation> = idns.into_iter().collect();
         dbg!(&filtered_domains);
 
-        assert_eq!(filtered_domains.len(), 6);
+        assert_eq!(filtered_domains.len(), 5);
     }
 
     #[test]
