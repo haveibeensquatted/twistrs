@@ -31,6 +31,8 @@ use serde::Serialize;
 // generated during compile time.
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
+use crate::tlds::{TLDS, TLDS_EXTENDED};
+
 /// Wrapper around an FQDN to perform permutations against.
 #[derive(Clone, Hash, Default, Debug, Serialize, Eq, PartialEq)]
 pub struct Domain {
@@ -100,7 +102,7 @@ impl Domain {
         // the TLD data list is already ordered, otherwise the result of the
         // binary search is meaningless. We also assume that all TLDs generated
         // are lowercase already.
-        if TLDS.binary_search(&tld.as_str()).is_ok() {
+        if TLDS_EXTENDED.binary_search(&tld.as_str()).is_ok() {
             let domain = Domain {
                 fqdn: fqdn.to_string(),
                 tld,
