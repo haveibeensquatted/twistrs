@@ -31,6 +31,8 @@ use serde::Serialize;
 // generated during compile time.
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
+use crate::tlds::{TLDS, TLDS_EXTENDED};
+
 /// Wrapper around an FQDN to perform permutations against.
 #[derive(Clone, Hash, Default, Debug, Serialize, Eq, PartialEq)]
 pub struct Domain {
@@ -93,22 +95,37 @@ impl Domain {
                 expected: "valid domain name with a root domain".to_string(),
                 found: fqdn.to_string(),
             })?;
-        let tld = parsed_domain.suffix().to_string();
-        let domain = Domain {
-            fqdn: fqdn.to_string(),
-            tld,
-            domain: root_domain
-                .find('.')
-                .and_then(|offset| root_domain.get(..offset))
-                // this should never error out since `root_domain` is a valid domain name
-                .ok_or(PermutationError::InvalidDomain {
-                    expected: "valid domain name with a root domain".to_string(),
-                    found: fqdn.to_string(),
-                })?
-                .to_string(),
-        };
 
-        Ok(domain)
+        let tld = parsed_domain.suffix().to_string();
+
+        // Verify that the TLD is in the list of known TLDs, this requires that
+        // the TLD data list is already ordered, otherwise the result of the
+        // binary search is meaningless. We also assume that all TLDs generated
+        // are lowercase already.
+        if TLDS_EXTENDED.binary_search(&tld.as_str()).is_ok() {
+            let domain = Domain {
+                fqdn: fqdn.to_string(),
+                tld,
+                domain: root_domain
+                    .find('.')
+                    .and_then(|offset| root_domain.get(..offset))
+                    // this should never error out since `root_domain` is a valid domain name
+                    .ok_or(PermutationError::InvalidDomain {
+                        expected: "valid domain name with a root domain".to_string(),
+                        found: fqdn.to_string(),
+                    })?
+                    .to_string(),
+            };
+
+            Ok(domain)
+        } else {
+            let err = PermutationError::InvalidDomain {
+                expected: "valid domain tld in the list of accepted tlds globally".to_string(),
+                found: tld,
+            };
+
+            Err(err.into())
+        }
     }
 
     /// Generate any and all possible domain permutations for a given `Domain`.
@@ -675,8 +692,8 @@ mod tests {
             String::from("rpublique-numrique-bwbm"),
             String::from("fiqs8s"),
             String::from("acadmie-franaise-npb1a-google.com"),
-            // List of valid domains
             String::from("google.com.acadmie-franaise-npb1a"),
+            // List of valid domains
             String::from("acadmie-franaise-npb1a"),
             String::from("google.com"),
             String::from("phishdeck.com"),
@@ -699,7 +716,7 @@ mod tests {
         let filtered_domains: Vec<Permutation> = idns.into_iter().collect();
         dbg!(&filtered_domains);
 
-        assert_eq!(filtered_domains.len(), 6);
+        assert_eq!(filtered_domains.len(), 5);
     }
 
     #[test]

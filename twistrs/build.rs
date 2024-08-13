@@ -12,10 +12,6 @@ fn main() {
     // https://dev.to/rustyoctopus/generating-static-arrays-during-compile-time-in-rust-10d8
     let mut dicionary_output = String::from("");
 
-    let mut tld_array_string = String::from(
-        "#[allow(dead_code)]
-                                                  static TLDS: [&str; ",
-    );
     let mut keywords_array_string = String::from(
         "#[allow(dead_code)]
                                                  static KEYWORDS: [&str; ",
@@ -24,44 +20,6 @@ fn main() {
         "#[allow(dead_code)]
                                                   static WHOIS_RAW_JSON: &str = r#",
     );
-
-    // Calculate how many TLDs we actually have in the dictionary
-    match read_lines("./data/tlds.txt") {
-        Ok(lines) => {
-            // We want to unwrap to make sure that we are able to fetch all TLDs
-            let tlds = lines.map(|l| l.unwrap()).collect::<Vec<String>>();
-
-            // Finalize the variable signature and break into newline to
-            // start populating the TLDs
-            tld_array_string.push_str(&tlds.len().to_string());
-            tld_array_string.push_str("] = [\r\n");
-
-            // Start populating TLD contents
-            for line in tlds.into_iter() {
-                // Formatting some tabs (ASCII-20)
-                tld_array_string.push_str("\u{20}\u{20}\u{20}\u{20}\"");
-
-                let tld = if line.chars().all(char::is_alphanumeric) {
-                    line.to_string()
-                } else {
-                    punycode::encode(line.to_string().as_str()).unwrap()
-                };
-
-                tld_array_string.push_str(&tld[..]);
-                tld_array_string.push_str("\",\r\n");
-            }
-
-            // Close off variable signature
-            tld_array_string.push_str("];\r\n");
-        }
-        Err(e) => panic!(
-            "{}",
-            format!(
-                "unable to build library due to missing dictionary file(s): {}",
-                e
-            )
-        ),
-    }
 
     match read_lines("./data/keywords.txt") {
         Ok(lines) => {
@@ -118,8 +76,6 @@ fn main() {
     }
 
     // Build the final output
-    dicionary_output.push_str(&tld_array_string);
-    dicionary_output.push('\n');
     dicionary_output.push_str(&keywords_array_string);
     dicionary_output.push('\n');
     dicionary_output.push_str(&whois_servers_string);
