@@ -103,10 +103,10 @@ pub struct DomainMetadata {
     /// HTTP server banner data extracted.
     pub http_banner: Option<String>,
 
-    /// IP addresses resolved through GeoIP lookup to City, Country, Continent.
+    /// IP addresses resolved through `GeoIP` lookup to `City`, `Country`, `Continent`.
     pub geo_ip_lookups: Option<Vec<(IpAddr, String)>>,
 
-    /// Block of text returned by the WhoIs registrar.
+    /// Block of text returned by the `WhoIs` registrar.
     pub who_is_lookup: Option<String>,
 }
 

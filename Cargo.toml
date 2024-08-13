@@ -1,10 +1,8 @@
 [workspace]
+resolver = "2"
 members = [
     "twistrs",
     "examples/twistrs-grpc",
     "examples/twistrs-cli",
     "examples/twistrs-ws"
 ]
-
-[patch.crates-io]
-pin-project-internal = { git = "https://github.com/taiki-e/pin-project.git", rev = "ddf7fe29a02f32dcc5ebf0b7a88e4311246f68be" } 

@@ -1,5 +1,13 @@
 # CHANGELOG.md
 
+## 0.6.4 (2024-08-13)
+
+Fix:
+
+  - Fixed bug where structurally valid domains were not being filtered due to 
+    having an invalid/unmapped tld. `Domain` creation now makes sure that the
+    domain is both structurally valid, and that the tld is a valid public tld.
+
 ## 0.6.2 (2023-10-11)
 
 Fix:
