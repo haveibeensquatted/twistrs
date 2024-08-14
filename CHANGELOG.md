@@ -1,5 +1,13 @@
 # CHANGELOG.md
 
+## 0.6.5 (2024-08-14)
+
+Features:
+
+  - Add `Mapped` permutation method that maps one or more characters into 
+    another set of one or more characters that are similar, or easy to miss,
+    such as `d` -> `cl`, `ck` -> `kk`.
+
 ## 0.6.4 (2024-08-13)
 
 Fix:
