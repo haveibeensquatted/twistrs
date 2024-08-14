@@ -17,7 +17,7 @@
 //!
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
-use crate::constants::{ASCII_LOWER, HOMOGLYPHS, KEYBOARD_LAYOUTS, VOWELS};
+use crate::constants::{ASCII_LOWER, HOMOGLYPHS, KEYBOARD_LAYOUTS, MAPPED_VALUES, VOWELS};
 use crate::error::Error;
 
 use std::collections::HashSet;
@@ -67,6 +67,7 @@ pub enum PermutationKind {
     Keyword,
     Tld,
     Homoglyph,
+    Mapped,
 }
 
 #[derive(Clone, thiserror::Error, Debug)]
@@ -563,6 +564,36 @@ impl Domain {
             None
         })
     }
+
+    /// Permutation method that maps one or more characters into another
+    /// set of one or more characters that are similar, or easy to miss,
+    /// such as `d` -> `cl`, `ck` -> `kk`.
+    pub fn mapped(&self) -> impl Iterator<Item = Permutation> + '_ {
+        let mut results = vec![];
+
+        for (key, values) in MAPPED_VALUES.entries() {
+            if self.domain.contains(key) {
+                let mut parts = self.domain.split(key);
+
+                for mapped_value in *values {
+                    let result = format!(
+                        "{domain}.{tld}",
+                        domain = parts.join(mapped_value),
+                        tld = self.tld
+                    );
+
+                    if let Ok(domain) = Domain::new(result.as_str()) {
+                        results.push(Permutation {
+                            domain,
+                            kind: PermutationKind::Mapped,
+                        });
+                    }
+                }
+            }
+        }
+
+        results.into_iter()
+    }
 }
 
 #[cfg(test)]
@@ -677,6 +708,14 @@ mod tests {
     fn test_tld_mode() {
         let d = Domain::new("www.example.com").unwrap();
         let permutations: Vec<_> = dbg!(d.tld().collect());
+
+        assert!(!permutations.is_empty());
+    }
+
+    #[test]
+    fn test_mapping_mode() {
+        let d = Domain::new("www.exoock96z.com").unwrap();
+        let permutations: Vec<_> = dbg!(d.mapped().collect());
 
         assert!(!permutations.is_empty());
     }
