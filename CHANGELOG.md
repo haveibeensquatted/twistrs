@@ -1,5 +1,13 @@
 # CHANGELOG.md
 
+## 0.6.6 (2024-10-06)
+
+Features:
+
+  - Add `DoubleVowelInsertion` permutation method that inserts all ascii
+    character in between two vowels, such as `ae` -> `ave`.
+
+
 ## 0.6.5 (2024-08-14)
 
 Features:
