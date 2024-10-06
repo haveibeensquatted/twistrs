@@ -64,6 +64,7 @@ pub enum PermutationKind {
     Subdomain,
     Transposition,
     VowelSwap,
+    DoubleVowelInsertion,
     Keyword,
     Tld,
     Homoglyph,
@@ -148,6 +149,7 @@ impl Domain {
             .chain(self.subdomain())
             .chain(self.transposition())
             .chain(self.vowel_swap())
+            .chain(self.double_vowel_insertion())
             .chain(self.keyword())
             .chain(self.tld())
             .chain(self.homoglyph()?))
@@ -496,7 +498,7 @@ impl Domain {
             .chars()
             .enumerate()
             .filter_map(move |(i, c)| {
-                if VOWELS.contains(&c) {
+                if VOWELS.contains(&c.to_ascii_lowercase()) {
                     Some(VOWELS.iter().filter_map(move |vowel| {
                         let permutation =
                             format!("{}{}{}", &self.fqdn[..i], vowel, &self.fqdn[i + 1..]);
@@ -507,6 +509,37 @@ impl Domain {
                             Some(Permutation {
                                 domain,
                                 kind: PermutationKind::VowelSwap,
+                            })
+                        } else {
+                            None
+                        }
+                    }))
+                } else {
+                    None
+                }
+            })
+            .flatten()
+    }
+
+    /// Permutation method that inserts every lowercase ascii character between
+    /// two vowels.
+    pub fn double_vowel_insertion(&self) -> impl Iterator<Item = Permutation> + '_ {
+        self.fqdn
+            .chars()
+            .enumerate()
+            .tuple_windows()
+            .filter_map(move |((i1, c1), (i2, c2))| {
+                if VOWELS.contains(&c1.to_ascii_lowercase())
+                    && VOWELS.contains(&c2.to_ascii_lowercase())
+                {
+                    Some(ASCII_LOWER.iter().filter_map(move |inserted| {
+                        let permutation =
+                            format!("{}{inserted}{}", &self.fqdn[..=i1], &self.fqdn[i2..]);
+
+                        if let Ok(domain) = Domain::new(permutation.as_str()) {
+                            Some(Permutation {
+                                domain,
+                                kind: PermutationKind::DoubleVowelInsertion,
                             })
                         } else {
                             None
@@ -769,5 +802,18 @@ mod tests {
             let permutations: Vec<_> = dbg!(domain.all().unwrap().collect());
             assert!(!permutations.is_empty());
         }
+    }
+
+    #[test]
+    fn test_domains_double_vowel_insertion() {
+        let domain = Domain::new("exampleiveus.com").unwrap();
+        let expected = Domain::new("exampleivesus.com").unwrap();
+
+        let results: Vec<Permutation> = domain
+            .double_vowel_insertion()
+            .filter(|p| p.domain.fqdn == expected.fqdn)
+            .collect();
+
+        assert_eq!(results.len(), 1);
     }
 }
