@@ -25,7 +25,7 @@ use std::collections::HashSet;
 use addr::parser::DomainName;
 use addr::psl::List;
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // Include further constants such as dictionaries that are
 // generated during compile time.
@@ -34,7 +34,7 @@ include!(concat!(env!("OUT_DIR"), "/data.rs"));
 use crate::tlds::{TLDS, TLDS_EXTENDED};
 
 /// Wrapper around an FQDN to perform permutations against.
-#[derive(Clone, Hash, Default, Debug, Serialize, Eq, PartialEq)]
+#[derive(Clone, Hash, Default, Debug, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Domain {
     /// The domain FQDN to generate permutations from.
     pub fqdn: String,
@@ -46,13 +46,13 @@ pub struct Domain {
     pub domain: String,
 }
 
-#[derive(Clone, Debug, Serialize, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Permutation {
     pub domain: Domain,
     pub kind: PermutationKind,
 }
 
-#[derive(Clone, Copy, Serialize, Hash, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Serialize, Deserialize, Hash, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum PermutationKind {
     Addition,
     Bitsquatting,

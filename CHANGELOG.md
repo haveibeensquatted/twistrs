@@ -1,5 +1,12 @@
 # CHANGELOG.md
 
+## 0.6.7 (2024-10-19)
+
+Misc:
+
+  - Added `Deserialize` and other auxiliary traits that may be helpful
+    downstream
+
 ## 0.6.6 (2024-10-06)
 
 Features:
