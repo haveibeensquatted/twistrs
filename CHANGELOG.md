@@ -1,5 +1,12 @@
 # CHANGELOG.md
 
+## 0.6.8 (2024-11-12)
+
+Fix:
+
+  - Fix bug where TLDs such as `.co.uk` were not included within the scope
+    of the TLD permutation.
+
 ## 0.6.7 (2024-10-19)
 
 Misc:
