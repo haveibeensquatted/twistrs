@@ -584,18 +584,20 @@ impl Domain {
     /// Permutation method that replaces all TLDs as variations of the
     /// root domain passed.
     pub fn tld(&self) -> impl Iterator<Item = Permutation> + '_ {
-        TLDS.iter().filter_map(move |tld| {
-            let fqdn = format!("{}.{}", &self.domain, tld);
+        TLDS.iter()
+            .chain(TLDS_EXTENDED.iter())
+            .filter_map(move |tld| {
+                let fqdn = format!("{}.{}", &self.domain, tld);
 
-            if let Ok(domain) = Domain::new(fqdn.as_str()) {
-                return Some(Permutation {
-                    domain,
-                    kind: PermutationKind::Tld,
-                });
-            }
+                if let Ok(domain) = Domain::new(fqdn.as_str()) {
+                    return Some(Permutation {
+                        domain,
+                        kind: PermutationKind::Tld,
+                    });
+                }
 
-            None
-        })
+                None
+            })
     }
 
     /// Permutation method that maps one or more characters into another
@@ -815,5 +817,23 @@ mod tests {
             .collect();
 
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn regression_test_co_uk_tld_is_valid() {
+        // Ensure we do not miss two-level TLDs such as .co.uk
+        let domain = Domain::new("bbc.com").unwrap();
+        let expected = [
+            Domain::new("bbc.co.uk").unwrap().fqdn,
+            Domain::new("bbc.co.rs").unwrap().fqdn,
+            Domain::new("bbc.co.uz").unwrap().fqdn,
+        ];
+
+        let results: Vec<Permutation> = domain
+            .tld()
+            .filter(|p| expected.contains(&p.domain.fqdn))
+            .collect();
+
+        assert_eq!(results.len(), 3);
     }
 }
