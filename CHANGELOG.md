@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.6.8 (2024-11-29)
+
+Fix:
+
+  - Fix bug with mapped permutations due to multiple mutations on same string
+
 ## 0.6.8 (2024-11-12)
 
 Fix:
