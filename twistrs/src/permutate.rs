@@ -152,6 +152,7 @@ impl Domain {
             .chain(self.double_vowel_insertion())
             .chain(self.keyword())
             .chain(self.tld())
+            .chain(self.mapped())
             .chain(self.homoglyph()?))
     }
 
@@ -608,12 +609,12 @@ impl Domain {
 
         for (key, values) in MAPPED_VALUES.entries() {
             if self.domain.contains(key) {
-                let mut parts = self.domain.split(key);
+                let parts = self.domain.split(key);
 
                 for mapped_value in *values {
                     let result = format!(
                         "{domain}.{tld}",
-                        domain = parts.join(mapped_value),
+                        domain = parts.clone().join(mapped_value),
                         tld = self.tld
                     );
 
@@ -835,5 +836,19 @@ mod tests {
             .collect();
 
         assert_eq!(results.len(), 3);
+    }
+
+    #[test]
+    fn test_mapped_generates_expected_permutation() {
+        let domain = Domain::new("trm.com").unwrap();
+        let expected = Domain::new("trnn.com").unwrap();
+
+        let results: Vec<Permutation> = domain
+            .mapped()
+            .into_iter()
+            .filter(|p| p.domain.fqdn == expected.fqdn)
+            .collect();
+
+        assert_eq!(results.len(), 1);
     }
 }
