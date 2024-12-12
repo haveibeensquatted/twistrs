@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.7.0 (2024-12-12)
+
+Fix:
+
+  - Add `.edu.au` to the list of accepted TLDs
+
 ## 0.6.8 (2024-11-29)
 
 Fix:

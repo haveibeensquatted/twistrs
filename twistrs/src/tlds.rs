@@ -1544,7 +1544,7 @@ pub const TLDS: [&str; 1543] = [
     "zw",
 ];
 
-pub const TLDS_EXTENDED: [&str; 3340] = [
+pub const TLDS_EXTENDED: [&str; 3341] = [
     "2000.hu",
     "5g.in",
     "6g.in",
