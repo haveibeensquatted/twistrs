@@ -2448,6 +2448,7 @@ pub const TLDS_EXTENDED: [&str; 3340] = [
     "edu",
     "edu.af",
     "edu.al",
+    "edu.au",
     "edu.az",
     "edu.bh",
     "edu.bi",
