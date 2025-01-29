@@ -2752,6 +2752,7 @@ pub const TLDS_EXTENDED: [&str; 3341] = [
     "gov.az",
     "gov.br",
     "gov.ck",
+    "gov.co",
     "gov.eg",
     "gov.ge",
     "gov.gi",
