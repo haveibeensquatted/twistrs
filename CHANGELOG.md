@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.7.1 (2025-01-29
+
+Fix:
+
+  - Add `.gov.co` to the list of accepted TLDs
+
 ## 0.7.0 (2024-12-12)
 
 Fix:
