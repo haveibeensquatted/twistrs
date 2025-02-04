@@ -45,14 +45,14 @@ def parse_psl(psl_text):
 
 def generate_rust_array(suffixes, output_path):
     array_len = len(suffixes)
-
-    # NOTE(juxhin): Not very ergonomic, but should get the job done.
-    rust_lines = f'''// This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; {array_len}] = [
-{'\n'.join([f'"{s}",' for s in suffixes])}
-];
-'''
-
+    
+    rust_lines = []
+    rust_lines.append("// This file is auto-generated. Do not edit manually.")
+    rust_lines.append(f"pub const TLDS: [&str; {array_len}] = [")
+    for s in suffixes:
+        rust_lines.append(f'    "{s}",')
+    rust_lines.append("];\n")
+    
     content = "\n".join(rust_lines)
 
     with open(output_path, "w", encoding="utf-8") as f:
