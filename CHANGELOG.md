@@ -1,6 +1,17 @@
 # CHANGELOG.md
 
-## 0.7.1 (2025-01-29
+## 0.7.2 (2025-02-04)
+
+Fix: 
+
+  - Updated all public suffix list.
+
+Misc: 
+
+  - Added github workflow to update TLDs daily
+
+
+## 0.7.1 (2025-01-29)
 
 Fix:
 
