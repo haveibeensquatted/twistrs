@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 // generated during compile time.
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
-use crate::tlds::{TLDS, TLDS_EXTENDED};
+use crate::tlds::TLDS;
 
 /// Wrapper around an FQDN to perform permutations against.
 #[derive(Clone, Hash, Default, Debug, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
@@ -104,7 +104,7 @@ impl Domain {
         // the TLD data list is already ordered, otherwise the result of the
         // binary search is meaningless. We also assume that all TLDs generated
         // are lowercase already.
-        if TLDS_EXTENDED.binary_search(&tld.as_str()).is_ok() {
+        if TLDS.binary_search(&tld.as_str()).is_ok() {
             let domain = Domain {
                 fqdn: fqdn.to_string(),
                 tld,
@@ -585,20 +585,18 @@ impl Domain {
     /// Permutation method that replaces all TLDs as variations of the
     /// root domain passed.
     pub fn tld(&self) -> impl Iterator<Item = Permutation> + '_ {
-        TLDS.iter()
-            .chain(TLDS_EXTENDED.iter())
-            .filter_map(move |tld| {
-                let fqdn = format!("{}.{}", &self.domain, tld);
+        TLDS.iter().filter_map(move |tld| {
+            let fqdn = format!("{}.{}", &self.domain, tld);
 
-                if let Ok(domain) = Domain::new(fqdn.as_str()) {
-                    return Some(Permutation {
-                        domain,
-                        kind: PermutationKind::Tld,
-                    });
-                }
+            if let Ok(domain) = Domain::new(fqdn.as_str()) {
+                return Some(Permutation {
+                    domain,
+                    kind: PermutationKind::Tld,
+                });
+            }
 
-                None
-            })
+            None
+        })
     }
 
     /// Permutation method that maps one or more characters into another
