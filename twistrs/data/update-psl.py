@@ -38,7 +38,7 @@ def parse_psl(psl_text):
         if not line or line.startswith("//"):
             continue
         # Remove any leading exclamation marks or wildcards (e.g. "!city." or "*.")
-        cleaned = re.sub(r"^(?:!\*\.|!\.|!\*|[\*!]+)", "", line)
+        cleaned = re.sub(r"^(?:!\*\.|!\.|!\*|^[\*.!]+)", "", line)
         valid_lines.append(cleaned)
     return sorted(valid_lines)
 
