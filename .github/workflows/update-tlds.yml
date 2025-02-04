@@ -1,16 +1,20 @@
-name: Update TLDs via Mozilla Public Suffix List
+name: Update TLDs
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # every day at midnight UTC
+    - cron: "0 0 * * *"  # Run daily at midnight UTC
   workflow_dispatch:
 
 jobs:
   update_tlds:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -22,9 +26,9 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: pip install requests
 
       - name: Run update script
-        run: python twistrs/data/update-psl.py
+        run: python tools/update_psl.py
 
