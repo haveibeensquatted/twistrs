@@ -12,23 +12,23 @@ import re
 import subprocess
 import sys
 import os
-
 import requests
+from datetime import datetime
 
 PSL_URL = "https://publicsuffix.org/list/public_suffix_list.dat"
 RUST_OUTPUT_PATH = "twistrs/src/tlds.rs"
 GIT_BRANCH = "update-tlds"
-COMMIT_MESSAGE = "Update TLDs from Public Suffix List [skip ci]"
-PR_TITLE = "Update TLD list"
-PR_BODY = "This PR updates the TLD list automatically from the Public Suffix List."
 
+today = datetime.now().strftime("%Y-%m-%d")
+COMMIT_MESSAGE = f"misc: update tld list {today} [skip ci]"
+PR_TITLE = f"misc: update tld list {today}"
+PR_BODY = "This PR updates the TLD list automatically from the Public Suffix List."
 
 def fetch_psl(url):
     print(f"Fetching PSL from {url}...")
     response = requests.get(url)
     response.raise_for_status()
     return response.text
-
 
 def parse_psl(psl_text):
     # Split the text into lines and remove any that are blank or start with "//"
@@ -41,7 +41,6 @@ def parse_psl(psl_text):
         cleaned = re.sub(r"^(?:!\*\.|!\.|!\*|^[\*.!]+)", "", line)
         valid_lines.append(cleaned)
     return sorted(valid_lines)
-
 
 def generate_rust_array(suffixes, output_path):
     array_len = len(suffixes)
@@ -61,11 +60,9 @@ def generate_rust_array(suffixes, output_path):
     print(f"wrote {array_len} suffixes to {output_path}")
     return content
 
-
 def git_diff_exists(path):
     result = subprocess.run(["git", "diff", "--exit-code", path])
     return result.returncode != 0
-
 
 def git_commit_and_push(file_path, branch_name, commit_message):
     # Make sure we're on the branch.
@@ -74,13 +71,11 @@ def git_commit_and_push(file_path, branch_name, commit_message):
     subprocess.run(["git", "commit", "-m", commit_message], check=True)
     subprocess.run(["git", "push", "origin", branch_name], check=True)
 
-
 def create_pull_request(branch_name, title, body):
     # This uses the GitHub CLI "gh" which must be installed and authenticated.
     print("Creating pull request...")
     subprocess.run(["gh", "pr", "create", "--base", "main", "--head", branch_name,
                     "--title", title, "--body", body], check=True)
-
 
 def main():
     try:
@@ -105,7 +100,6 @@ def main():
         create_pull_request(GIT_BRANCH, PR_TITLE, PR_BODY)
     else:
         print("no changes detected. exiting")
-
 
 if __name__ == "__main__":
     main()
