@@ -13,11 +13,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.x"
+
+      - name: Set remote URL with token
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/haveibeensquatted/twistrs.git
 
       - name: Configure Git identity
         run: |
@@ -29,6 +35,4 @@ jobs:
 
       - name: Run update script
         run: python twistrs/data/update-psl.py
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
