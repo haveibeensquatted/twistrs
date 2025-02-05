@@ -31,15 +31,37 @@ def fetch_psl(url):
     return response.text
 
 def parse_psl(psl_text):
-    # Split the text into lines and remove any that are blank or start with "//"
-    lines = [line.strip() for line in psl_text.splitlines()]
+    """
+    Parses the PSL text and returns a sorted list of suffixes,
+    ignoring any lines in comments, blank lines, and any entries
+    that fall within the "PRIVATE DOMAINS" block.
+    """
+    lines = psl_text.splitlines()
+    in_private_block = False
     valid_lines = []
+
     for line in lines:
-        if not line or line.startswith("//"):
+        stripped = line.strip()
+        # Detect start and end of private domains block
+        if "===BEGIN PRIVATE DOMAINS===" in stripped:
+            in_private_block = True
             continue
+        if "===END PRIVATE DOMAINS===" in stripped:
+            in_private_block = False
+            continue
+
+        # Skip comments and blank lines
+        if not stripped or stripped.startswith("//"):
+            continue
+
+        # Skip any lines inside the private block
+        if in_private_block:
+            continue
+
         # Remove any leading exclamation marks or wildcards (e.g. "!city." or "*.")
-        cleaned = re.sub(r"^(?:!\*\.|!\.|!\*|^[\*.!]+)", "", line)
+        cleaned = re.sub(r"^(?:!\*\.|!\.|!\*|^[\*.!]+)", "", stripped)
         valid_lines.append(cleaned)
+
     return sorted(valid_lines)
 
 def generate_rust_array(suffixes, output_path):
@@ -72,8 +94,7 @@ def git_commit_and_push(file_path, branch_name, commit_message):
     subprocess.run(["git", "push", "origin", branch_name], check=True)
 
 def create_pull_request(branch_name, title, body):
-    # This uses the GitHub CLI "gh" which must be installed and authenticated.
-    print("Creating pull request...")
+    print("creating pull request...")
     subprocess.run(["gh", "pr", "create", "--base", "main", "--head", branch_name,
                     "--title", title, "--body", body], check=True)
 
@@ -87,7 +108,6 @@ def main():
     suffixes = parse_psl(psl_text)
     print(f"parsed {len(suffixes)} suffix entries")
 
-    # Generate the Rust file
     generate_rust_array(suffixes, RUST_OUTPUT_PATH)
 
     if git_diff_exists(RUST_OUTPUT_PATH):
