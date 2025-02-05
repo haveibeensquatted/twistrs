@@ -17,7 +17,7 @@ from datetime import datetime
 
 PSL_URL = "https://publicsuffix.org/list/public_suffix_list.dat"
 RUST_OUTPUT_PATH = "twistrs/src/tlds.rs"
-GIT_BRANCH = "update-tlds"
+GIT_BRANCH = "github-bot-update-tlds"
 
 today = datetime.now().strftime("%Y-%m-%d")
 COMMIT_MESSAGE = f"misc: update tld list {today} [skip ci]"
@@ -91,7 +91,7 @@ def git_commit_and_push(file_path, branch_name, commit_message):
     subprocess.run(["git", "checkout", branch_name], check=True)
     subprocess.run(["git", "add", file_path], check=True)
     subprocess.run(["git", "commit", "-m", commit_message], check=True)
-    subprocess.run(["git", "push", "origin", branch_name], check=True)
+    subprocess.run(["git", "push", "--force", "origin", branch_name], check=True)
 
 def create_pull_request(branch_name, title, body):
     print("creating pull request...")
