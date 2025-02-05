@@ -1,6 +1,20 @@
 # CHANGELOG.md
 
+## 0.7.3 (2025-02-04)
+
+Fix:
+
+  - Updated accepted TLDs to not include private domains
+
+Misc:
+
+  - Updated automatic PSL list parser
+
 ## 0.7.2 (2025-02-04)
+
+> [!WARNING]  
+> This release has been yanked due to containing private domains from the 
+> public suffix list that resulted in inflated results.
 
 Fix: 
 
