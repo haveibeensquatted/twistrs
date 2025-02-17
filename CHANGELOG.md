@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.7.4 (2025-02-17)
+
+Feat:
+
+  - Added additional keywords including regional, geographical and generic.
+
 ## 0.7.3 (2025-02-04)
 
 Fix:
