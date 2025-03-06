@@ -1,5 +1,13 @@
 # CHANGELOG.md
 
+## 0.7.5 (2025-03-06)
+
+Feat:
+
+  - Exposing global TLDs list to consumers
+  - Added `emprende.ve` tld
+  - Removed `kerrylogistics` and `lipsy` tlds
+
 ## 0.7.4 (2025-02-17)
 
 Feat:
