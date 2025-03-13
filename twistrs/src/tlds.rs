@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6867] = [
+pub const TLDS: [&str; 6871] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -145,6 +145,7 @@ pub const TLDS: [&str; 6867] = [
     "ai",
     "ai.in",
     "ai.jo",
+    "ai.kr",
     "ai.vn",
     "aibetsu.hokkaido.jp",
     "aichi.jp",
@@ -2594,6 +2595,7 @@ pub const TLDS: [&str; 6867] = [
     "inzai.chiba.jp",
     "io",
     "io.in",
+    "io.kr",
     "io.vn",
     "ip6.arpa",
     "ipiranga",
@@ -2627,6 +2629,7 @@ pub const TLDS: [&str; 6867] = [
     "isumi.chiba.jp",
     "it",
     "it.ao",
+    "it.kr",
     "itabashi.tokyo.jp",
     "itako.ibaraki.jp",
     "itakura.gunma.jp",
@@ -3500,6 +3503,7 @@ pub const TLDS: [&str; 6867] = [
     "me.in",
     "me.it",
     "me.ke",
+    "me.kr",
     "me.so",
     "me.ss",
     "me.tz",
