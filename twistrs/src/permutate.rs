@@ -585,14 +585,21 @@ impl Domain {
     /// Permutation method that replaces all TLDs as variations of the
     /// root domain passed.
     pub fn tld(&self) -> impl Iterator<Item = Permutation> + '_ {
+        use crate::filter::{Filter, Substring};
+        let filter = Substring {
+            substrings: &["co", "gov", "uk"],
+        };
+
         TLDS.iter().filter_map(move |tld| {
             let fqdn = format!("{}.{}", &self.domain, tld);
 
             if let Ok(domain) = Domain::new(fqdn.as_str()) {
-                return Some(Permutation {
-                    domain,
-                    kind: PermutationKind::Tld,
-                });
+                if filter.filter(&domain) {
+                    return Some(Permutation {
+                        domain,
+                        kind: PermutationKind::Tld,
+                    });
+                }
             }
 
             None
@@ -843,10 +850,23 @@ mod tests {
 
         let results: Vec<Permutation> = domain
             .mapped()
-            .into_iter()
             .filter(|p| p.domain.fqdn == expected.fqdn)
             .collect();
 
         assert_eq!(results.len(), 1);
+    }
+
+    /// Regression test against <https://github.com/haveibeensquatted/twistrs/issues/102>
+    #[test]
+    fn test_irrelevant_tlds_not_being_generated() {
+        let domain = Domain::new("www.gov.uk").unwrap();
+        let unexpected = Domain::new("www.alta.no").unwrap();
+
+        let results: Vec<Permutation> = domain
+            .tld()
+            .filter(|p| p.domain.fqdn == unexpected.fqdn)
+            .collect();
+
+        assert_eq!(results.len(), 0);
     }
 }

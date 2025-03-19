@@ -125,5 +125,8 @@ extern crate lazy_static;
 pub mod constants;
 pub mod enrich;
 pub mod error;
+pub mod filter;
 pub mod permutate;
 pub mod tlds;
+
+pub use permutate::{Domain, Permutation, PermutationError, PermutationKind};
