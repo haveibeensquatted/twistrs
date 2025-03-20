@@ -585,21 +585,14 @@ impl Domain {
     /// Permutation method that replaces all TLDs as variations of the
     /// root domain passed.
     pub fn tld(&self) -> impl Iterator<Item = Permutation> + '_ {
-        use crate::filter::{Filter, Substring};
-        let filter = Substring {
-            substrings: &["co", "gov", "uk"],
-        };
-
         TLDS.iter().filter_map(move |tld| {
             let fqdn = format!("{}.{}", &self.domain, tld);
 
             if let Ok(domain) = Domain::new(fqdn.as_str()) {
-                if filter.filter(&domain) {
-                    return Some(Permutation {
-                        domain,
-                        kind: PermutationKind::Tld,
-                    });
-                }
+                return Some(Permutation {
+                    domain,
+                    kind: PermutationKind::Tld,
+                });
             }
 
             None

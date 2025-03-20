@@ -22,14 +22,22 @@ impl Filter for Permissive {
 }
 
 #[derive(Default, Copy, Clone)]
-pub struct Substring<'a> {
-    pub substrings: &'a [&'a str],
+pub struct Substring<'a, S: AsRef<str> + 'a> {
+    substrings: &'a [S],
 }
 
-impl Filter for Substring<'_> {
+impl<'a, S: AsRef<str>> Substring<'a, S> {
+    pub fn new(substrings: &'a [S]) -> Self {
+        Self { substrings }
+    }
+}
+
+impl<S: AsRef<str>> Filter for Substring<'_, S> {
     type Error = ();
 
     fn filter(&self, domain: &Domain) -> bool {
-        self.substrings.iter().any(|s| domain.fqdn.contains(s))
+        self.substrings
+            .iter()
+            .any(|s| domain.fqdn.contains(s.as_ref()))
     }
 }
