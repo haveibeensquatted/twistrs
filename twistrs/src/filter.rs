@@ -3,10 +3,10 @@ use crate::Domain;
 pub trait Filter {
     type Error;
 
-    fn filter(&self, domain: &Domain) -> bool;
+    fn matches(&self, domain: &Domain) -> bool;
 
-    fn try_filter(&self, domain: &Domain) -> Result<bool, Self::Error> {
-        Ok(Self::filter(self, domain))
+    fn try_matches(&self, domain: &Domain) -> Result<bool, Self::Error> {
+        Ok(Self::matches(self, domain))
     }
 }
 
@@ -16,7 +16,7 @@ pub struct Permissive;
 impl Filter for Permissive {
     type Error = ();
 
-    fn filter(&self, _: &Domain) -> bool {
+    fn matches(&self, _: &Domain) -> bool {
         true
     }
 }
@@ -35,7 +35,7 @@ impl<'a, S: AsRef<str>> Substring<'a, S> {
 impl<S: AsRef<str>> Filter for Substring<'_, S> {
     type Error = ();
 
-    fn filter(&self, domain: &Domain) -> bool {
+    fn matches(&self, domain: &Domain) -> bool {
         self.substrings
             .iter()
             .any(|s| domain.fqdn.contains(s.as_ref()))

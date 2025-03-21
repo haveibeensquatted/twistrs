@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
 
     let domain = Domain::new(matches.value_of("domain").unwrap()).unwrap();
 
-    let domain_permutations = domain.all()?.collect::<HashSet<Permutation>>();
+    let domain_permutations = domain.all().collect::<HashSet<Permutation>>();
     let domain_permutation_count = domain_permutations.len();
 
     let (tx, mut rx) = mpsc::channel(5000);

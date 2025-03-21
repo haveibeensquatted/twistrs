@@ -24,7 +24,7 @@ impl DomainEnumeration for DomainEnumerationService {
     ) -> Result<Response<Self::SendDnsResolutionStream>, Status> {
         let (tx, rx) = mpsc::channel(64);
 
-        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
+        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all() {
             let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
             let mut tx = tx.clone();
 
@@ -61,7 +61,7 @@ impl DomainEnumeration for DomainEnumerationService {
     ) -> Result<Response<Self::SendMxCheckStream>, Status> {
         let (tx, rx) = mpsc::channel(64);
 
-        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
+        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all() {
             let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
             let mut tx = tx.clone();
 
