@@ -9,17 +9,20 @@
 //! Example:
 //!
 //! ```
-//! use twistrs::permutate::{Domain, Permutation};
+//! use twistrs::{
+//!   permutate::{Domain, Permutation},
+//!   filter::{Filter, Permissive},
+//! };
 //!
 //! let domain = Domain::new("google.com").unwrap();
-//! let domain_permutations: Vec<Permutation> = domain.all().expect("error permuting domains").collect();
+//! let domain_permutations: Vec<Permutation> = domain.all(&Permissive).collect();
 //! ```
 //!
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
 use crate::constants::{ASCII_LOWER, HOMOGLYPHS, KEYBOARD_LAYOUTS, MAPPED_VALUES, VOWELS};
 use crate::error::Error;
-use crate::filter::{Filter, Permissive};
+use crate::filter::Filter;
 
 use std::collections::HashSet;
 
@@ -138,27 +141,30 @@ impl Domain {
     ///
     /// Any future permutations will also be included into this function call
     /// without any changes required from any client implementations.
-    pub fn all(&self) -> impl Iterator<Item = Permutation> + '_ {
-        self.addition()
-            .chain(self.bitsquatting())
-            .chain(self.hyphentation())
-            .chain(self.insertion())
-            .chain(self.omission())
-            .chain(self.repetition())
-            .chain(self.replacement())
-            .chain(self.subdomain())
-            .chain(self.transposition())
-            .chain(self.vowel_swap())
-            .chain(self.double_vowel_insertion())
-            .chain(self.keyword())
-            .chain(self.tld())
-            .chain(self.mapped())
-            .chain(self.homoglyph())
+    pub fn all<'a>(&'a self, filter: &'a impl Filter) -> impl Iterator<Item = Permutation> + 'a {
+        self.addition(filter)
+            .chain(self.bitsquatting(filter))
+            .chain(self.hyphentation(filter))
+            .chain(self.insertion(filter))
+            .chain(self.omission(filter))
+            .chain(self.repetition(filter))
+            .chain(self.replacement(filter))
+            .chain(self.subdomain(filter))
+            .chain(self.transposition(filter))
+            .chain(self.vowel_swap(filter))
+            .chain(self.double_vowel_insertion(filter))
+            .chain(self.keyword(filter))
+            .chain(self.tld(filter))
+            .chain(self.mapped(filter))
+            .chain(self.homoglyph(filter))
     }
 
     /// Add every ASCII lowercase character between the Domain
     /// (e.g. `google`) and top-level domain (e.g. `.com`).
-    pub fn addition(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn addition<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 ASCII_LOWER
@@ -166,7 +172,7 @@ impl Domain {
                     .map(move |c| format!("{}{}.{}", self.domain, c, self.tld))
             },
             PermutationKind::Addition,
-            Permissive,
+            filter,
         )
     }
 
@@ -187,7 +193,10 @@ impl Domain {
     ///  10000000 ^ chr
     ///
     /// Then check if the resulting bit operation falls within ASCII range.
-    pub fn bitsquatting(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn bitsquatting<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn
@@ -217,13 +226,16 @@ impl Domain {
                     .flatten()
             },
             PermutationKind::Bitsquatting,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that replaces ASCII characters with multiple homoglyphs
     /// similar to the respective ASCII character.
-    pub fn homoglyph(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn homoglyph<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         // Convert the candidate into a vector of chars for proper indexing.
         Self::permutation(
             move || {
@@ -262,13 +274,16 @@ impl Domain {
                 results.into_iter()
             },
             PermutationKind::Homoglyph,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that inserts hyphens (i.e. `-`) between each
     /// character in the domain where valid.
-    pub fn hyphentation(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn hyphentation<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn.chars().skip(1).enumerate().map(move |(i, _)| {
@@ -278,14 +293,17 @@ impl Domain {
                 })
             },
             PermutationKind::Hyphenation,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that inserts specific characters that are close to
     /// any character in the domain depending on the keyboard (e.g. `Q` next
     /// to `W` in qwerty keyboard layout.
-    pub fn insertion(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn insertion<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn
@@ -310,12 +328,15 @@ impl Domain {
                     .flatten()
             },
             PermutationKind::Insertion,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that selectively removes a character from the domain.
-    pub fn omission(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn omission<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn.chars().enumerate().map(move |(i, _)| {
@@ -325,13 +346,16 @@ impl Domain {
                 })
             },
             PermutationKind::Omission,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that repeats characters twice provided they are
     /// alphabetic characters (e.g. `google.com` -> `gooogle.com`).
-    pub fn repetition(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn repetition<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn.chars().enumerate().filter_map(move |(i, c)| {
@@ -343,13 +367,16 @@ impl Domain {
                 })
             },
             PermutationKind::Repetition,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method similar to insertion, except that it replaces a given
     /// character with another character in proximity depending on keyboard layout.
-    pub fn replacement(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn replacement<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn
@@ -374,11 +401,14 @@ impl Domain {
                     .flatten()
             },
             PermutationKind::Replacement,
-            Permissive,
+            filter,
         )
     }
 
-    pub fn subdomain(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn subdomain<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn
@@ -395,13 +425,16 @@ impl Domain {
                     })
             },
             PermutationKind::Subdomain,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that swaps out characters in the domain (e.g.
     /// `google.com` -> `goolge.com`).
-    pub fn transposition(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn transposition<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn.chars().enumerate().tuple_windows().filter_map(
@@ -421,13 +454,16 @@ impl Domain {
                 )
             },
             PermutationKind::Transposition,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that swaps vowels for other vowels (e.g.
     /// `google.com` -> `gougle.com`).
-    pub fn vowel_swap(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn vowel_swap<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn
@@ -454,13 +490,16 @@ impl Domain {
                     .flatten()
             },
             PermutationKind::VowelSwap,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that inserts every lowercase ascii character between
     /// two vowels.
-    pub fn double_vowel_insertion(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn double_vowel_insertion<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 self.fqdn
@@ -481,7 +520,7 @@ impl Domain {
                     .flatten()
             },
             PermutationKind::DoubleVowelInsertion,
-            Permissive,
+            filter,
         )
     }
 
@@ -492,7 +531,10 @@ impl Domain {
     /// 2. Prepend keyword (e.g. `foo.com` -> `wordfoo.com`)
     /// 3. Append keyword and dash (e.g. `foo.com` -> `foo-word.com`)
     /// 4. Append keyword and dash (e.g. `foo.com` -> `fooword.com`)
-    pub fn keyword(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn keyword<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 KEYWORDS.iter().flat_map(move |keyword| {
@@ -506,27 +548,27 @@ impl Domain {
                 })
             },
             PermutationKind::Keyword,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that replaces all TLDs as variations of the
     /// root domain passed.
-    pub fn tld(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn tld<'a>(&'a self, filter: &'a impl Filter) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 TLDS.iter()
                     .map(move |tld| format!("{}.{}", &self.domain, tld))
             },
             PermutationKind::Mapped,
-            Permissive,
+            filter,
         )
     }
 
     /// Permutation method that maps one or more characters into another
     /// set of one or more characters that are similar, or easy to miss,
     /// such as `d` -> `cl`, `ck` -> `kk`.
-    pub fn mapped(&self) -> impl Iterator<Item = Permutation> + '_ {
+    pub fn mapped<'a>(&'a self, filter: &'a impl Filter) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
             move || {
                 let mut results = vec![];
@@ -549,7 +591,7 @@ impl Domain {
                 results.into_iter()
             },
             PermutationKind::Mapped,
-            Permissive,
+            filter,
         )
     }
 
@@ -559,7 +601,7 @@ impl Domain {
     fn permutation<'a, S, T: Fn() -> S + 'a, U: Filter + 'a>(
         f: T,
         kind: PermutationKind,
-        filter: U,
+        filter: &'a U,
     ) -> impl Iterator<Item = Permutation> + use<'a, S, T, U>
     where
         S: Iterator<Item = String> + 'a,
@@ -578,12 +620,14 @@ impl Domain {
 
 #[cfg(test)]
 mod tests {
+    use crate::filter::Permissive;
+
     use super::*;
 
     #[test]
     fn test_all_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = d.all().collect();
+        let permutations: Vec<_> = d.all(&Permissive).collect();
 
         assert!(!permutations.is_empty());
     }
@@ -591,7 +635,7 @@ mod tests {
     #[test]
     fn test_addition_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.addition().collect());
+        let permutations: Vec<_> = dbg!(d.addition(&Permissive).collect());
 
         assert_eq!(permutations.len(), ASCII_LOWER.len());
     }
@@ -599,7 +643,7 @@ mod tests {
     #[test]
     fn test_bitsquatting_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.bitsquatting().collect());
+        let permutations: Vec<_> = dbg!(d.bitsquatting(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -607,7 +651,7 @@ mod tests {
     #[test]
     fn test_homoglyph_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.homoglyph().collect());
+        let permutations: Vec<_> = dbg!(d.homoglyph(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -615,7 +659,7 @@ mod tests {
     #[test]
     fn test_hyphenation_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.hyphentation().collect());
+        let permutations: Vec<_> = dbg!(d.hyphentation(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -623,7 +667,7 @@ mod tests {
     #[test]
     fn test_insertion_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.insertion().collect());
+        let permutations: Vec<_> = dbg!(d.insertion(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -631,7 +675,7 @@ mod tests {
     #[test]
     fn test_omission_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.omission().collect());
+        let permutations: Vec<_> = dbg!(d.omission(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -639,7 +683,7 @@ mod tests {
     #[test]
     fn test_repetition_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.repetition().collect());
+        let permutations: Vec<_> = dbg!(d.repetition(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -647,7 +691,7 @@ mod tests {
     #[test]
     fn test_replacement_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.replacement().collect());
+        let permutations: Vec<_> = dbg!(d.replacement(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -655,7 +699,7 @@ mod tests {
     #[test]
     fn test_subdomain_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.subdomain().collect());
+        let permutations: Vec<_> = dbg!(d.subdomain(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -663,7 +707,7 @@ mod tests {
     #[test]
     fn test_transposition_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.transposition().collect());
+        let permutations: Vec<_> = dbg!(d.transposition(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -671,7 +715,7 @@ mod tests {
     #[test]
     fn test_vowel_swap_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.vowel_swap().collect());
+        let permutations: Vec<_> = dbg!(d.vowel_swap(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -679,7 +723,7 @@ mod tests {
     #[test]
     fn test_keyword_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.keyword().collect());
+        let permutations: Vec<_> = dbg!(d.keyword(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -687,7 +731,7 @@ mod tests {
     #[test]
     fn test_tld_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.tld().collect());
+        let permutations: Vec<_> = dbg!(d.tld(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -695,7 +739,7 @@ mod tests {
     #[test]
     fn test_mapping_mode() {
         let d = Domain::new("www.exoock96z.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.mapped().collect());
+        let permutations: Vec<_> = dbg!(d.mapped(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -746,7 +790,7 @@ mod tests {
             .collect();
 
         for domain in domains {
-            let permutations: Vec<_> = dbg!(domain.all().collect());
+            let permutations: Vec<_> = dbg!(domain.all(&Permissive).collect());
             assert!(!permutations.is_empty());
         }
     }
@@ -757,7 +801,7 @@ mod tests {
         let expected = Domain::new("exampleivesus.com").unwrap();
 
         let results: Vec<Permutation> = domain
-            .double_vowel_insertion()
+            .double_vowel_insertion(&Permissive)
             .filter(|p| p.domain.fqdn == expected.fqdn)
             .collect();
 
@@ -775,7 +819,7 @@ mod tests {
         ];
 
         let results: Vec<Permutation> = domain
-            .tld()
+            .tld(&Permissive)
             .filter(|p| expected.contains(&p.domain.fqdn))
             .collect();
 
@@ -788,7 +832,7 @@ mod tests {
         let expected = Domain::new("trnn.com").unwrap();
 
         let results: Vec<Permutation> = domain
-            .mapped()
+            .mapped(&Permissive)
             .filter(|p| p.domain.fqdn == expected.fqdn)
             .collect();
 
@@ -798,11 +842,20 @@ mod tests {
     /// Regression test against <https://github.com/haveibeensquatted/twistrs/issues/102>
     #[test]
     fn test_irrelevant_tlds_not_being_generated() {
+        struct InnerFilter;
+        impl Filter for InnerFilter {
+            type Error = ();
+
+            fn matches(&self, domain: &Domain) -> bool {
+                domain.fqdn.contains("gov")
+            }
+        }
+
         let domain = Domain::new("www.gov.uk").unwrap();
         let unexpected = Domain::new("www.alta.no").unwrap();
 
         let results: Vec<Permutation> = domain
-            .tld()
+            .tld(&InnerFilter)
             .filter(|p| p.domain.fqdn == unexpected.fqdn)
             .collect();
 

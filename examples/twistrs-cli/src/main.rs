@@ -3,6 +3,7 @@ use colored::*;
 
 use tokio::sync::mpsc;
 use twistrs::enrich::DomainMetadata;
+use twistrs::filter::Permissive;
 use twistrs::permutate::{Domain, Permutation};
 
 use anyhow::Result;
@@ -21,7 +22,7 @@ async fn main() -> Result<()> {
 
     let domain = Domain::new(matches.value_of("domain").unwrap()).unwrap();
 
-    let domain_permutations = domain.all().collect::<HashSet<Permutation>>();
+    let domain_permutations = domain.all(&Permissive).collect::<HashSet<Permutation>>();
     let domain_permutation_count = domain_permutations.len();
 
     let (tx, mut rx) = mpsc::channel(5000);
