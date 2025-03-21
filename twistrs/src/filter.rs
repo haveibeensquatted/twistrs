@@ -1,15 +1,20 @@
 use crate::Domain;
 
+/// The `Filter` trait provides functions that allow filtering of permutations given a certain
+/// condition. This is useful when certain permutation methods (e.g.,
+/// [`tld`](./permutate/Domain#tld)) expose permutations that you would like to dismiss.
 pub trait Filter {
     type Error;
 
     fn matches(&self, domain: &Domain) -> bool;
 
+    /// **Note** &mdash; this is currently not being used internally.
     fn try_matches(&self, domain: &Domain) -> Result<bool, Self::Error> {
         Ok(Self::matches(self, domain))
     }
 }
 
+/// Open filter, all results are retained; similar to a wildcard.
 #[derive(Default, Copy, Clone)]
 pub struct Permissive;
 
@@ -21,6 +26,11 @@ impl Filter for Permissive {
     }
 }
 
+/// When passed a slice of string patterns, will filter out values that do **not** contain any of
+/// the substrings.
+///
+/// Example usage may be filtering the [`tld`](./permutate/Domain#tld) permutations to only include
+/// TLDs that contain part of the origin TLD.
 #[derive(Default, Copy, Clone)]
 pub struct Substring<'a, S: AsRef<str> + 'a> {
     substrings: &'a [S],

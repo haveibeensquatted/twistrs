@@ -54,9 +54,7 @@
 //!         println!("{:?}", i);
 //!     }
 //! }
-//!
 //! ```
-//!
 
 #![deny(
     // TODO(jdb): Uncomment missing docs later on
