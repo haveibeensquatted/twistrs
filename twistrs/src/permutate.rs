@@ -620,7 +620,7 @@ impl Domain {
 
 #[cfg(test)]
 mod tests {
-    use crate::filter::Permissive;
+    use crate::filter::{Permissive, Substring};
 
     use super::*;
 
@@ -860,5 +860,16 @@ mod tests {
             .collect();
 
         assert_eq!(results.len(), 0);
+    }
+
+    /// Tests that the `Substring` filter behaves as expected
+    #[test]
+    fn test_substring_default_filter() {
+        let filter = Substring::new(&["gov", "uk"]);
+        let domain = Domain::new("www.gov.uk").unwrap();
+
+        assert!(domain
+            .all(&filter)
+            .all(|p| p.domain.fqdn.contains("gov") || p.domain.fqdn.contains("uk")));
     }
 }
