@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 use tonic::{transport::Server, Request, Response, Status};
 
 use twistrs::enrich::DomainMetadata;
+use twistrs::filter::Permissive;
 use twistrs::permutate::Domain;
 
 use domain_enumeration::domain_enumeration_server::{DomainEnumeration, DomainEnumerationServer};
@@ -24,7 +25,10 @@ impl DomainEnumeration for DomainEnumerationService {
     ) -> Result<Response<Self::SendDnsResolutionStream>, Status> {
         let (tx, rx) = mpsc::channel(64);
 
-        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
+        for permutation in Domain::new(&request.get_ref().fqdn)
+            .unwrap()
+            .all(&Permissive)
+        {
             let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
             let mut tx = tx.clone();
 
@@ -61,7 +65,10 @@ impl DomainEnumeration for DomainEnumerationService {
     ) -> Result<Response<Self::SendMxCheckStream>, Status> {
         let (tx, rx) = mpsc::channel(64);
 
-        for permutation in Domain::new(&request.get_ref().fqdn).unwrap().all().unwrap() {
+        for permutation in Domain::new(&request.get_ref().fqdn)
+            .unwrap()
+            .all(&Permissive)
+        {
             let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
             let mut tx = tx.clone();
 

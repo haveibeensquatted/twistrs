@@ -18,8 +18,11 @@
 //! The following is a trivial example using [Tokio mpsc](https://docs.rs/tokio/0.2.22/tokio/sync/mpsc/index.html).
 //!
 //! ```
-//! use twistrs::enrich::DomainMetadata;
-//! use twistrs::permutate::Domain;
+//! use twistrs::{
+//!   permutate::{Domain},
+//!   enrich::DomainMetadata,
+//!   filter::{Filter, Permissive},
+//! };
 //!
 //! use tokio::sync::mpsc;
 //!
@@ -27,7 +30,7 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let domain = Domain::new("google.com").unwrap();
-//!     let permutations = domain.addition();
+//!     let permutations = domain.addition(&Permissive);
 //!
 //!     let (tx, mut rx) = mpsc::channel(1000);
 //!
@@ -51,9 +54,7 @@
 //!         println!("{:?}", i);
 //!     }
 //! }
-//!
 //! ```
-//!
 
 #![deny(
     // TODO(jdb): Uncomment missing docs later on
@@ -125,5 +126,8 @@ extern crate lazy_static;
 pub mod constants;
 pub mod enrich;
 pub mod error;
+pub mod filter;
 pub mod permutate;
 pub mod tlds;
+
+pub use permutate::{Domain, Permutation, PermutationError, PermutationKind};
