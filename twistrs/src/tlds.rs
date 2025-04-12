@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6871] = [
+pub const TLDS: [&str; 6872] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -5273,6 +5273,7 @@ pub const TLDS: [&str; 6871] = [
     "secure",
     "security",
     "seek",
+    "seg.ar",
     "seg.br",
     "seihi.nagasaki.jp",
     "seika.kyoto.jp",
