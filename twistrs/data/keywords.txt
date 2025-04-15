@@ -1,5 +1,6 @@
 2fa
 acct
+activate
 adm
 adminpanel
 af
@@ -38,6 +39,7 @@ cfg
 cfg
 ch
 charges
+cheap
 check
 checkout
 checkoutnow
@@ -50,6 +52,8 @@ cluster
 company
 compliance
 conf
+confirm
+confirmation
 connectnow
 console
 contact
@@ -71,16 +75,20 @@ docs
 domain
 downloaded
 downloaded
+easy
 edit
+email
 emea
 en
 endpoint
 endpoint
+enterprise
 eu
 euro
 europe
 exe
 faq
+fast
 forgot
 forward
 foundation
@@ -99,6 +107,7 @@ http2
 id
 identity
 imap
+inbox
 index
 india
 info
@@ -111,12 +120,15 @@ join
 joinus
 jp
 launch
+login
 logon
+mail
 manager
 member
 mex
 mfa
 middleeast
+mobile
 msg
 multi
 mx
@@ -124,6 +136,7 @@ na
 nation
 node
 notice
+notify
 ns
 nz
 offers
@@ -135,6 +148,7 @@ orgs
 password
 patch
 patch
+pay
 paybill
 paynow
 phish
@@ -173,6 +187,7 @@ sandbox
 scan
 scot
 sec
+secure
 securemail
 servicedesk
 session
@@ -182,12 +197,15 @@ share
 shop
 shopnow
 short
+signin
 signon
 signon
 signups
+simple
 site
 smtp
 srv
+sso
 stage
 staging
 store
@@ -196,7 +214,7 @@ subdomain
 subscribe
 subuser
 superuser
-supportdesk
+support
 supportdesk
 survey
 sync
