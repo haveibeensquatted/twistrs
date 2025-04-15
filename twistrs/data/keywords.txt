@@ -202,6 +202,7 @@ signon
 signon
 signups
 simple
+simply
 site
 smtp
 srv
