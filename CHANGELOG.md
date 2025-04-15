@@ -1,5 +1,14 @@
 # CHANGELOG.md
 
+## 0.8.0 (2025-04-15)
+
+Feat:
+
+  - :warning: **breaking**: Added the `Filter` trait to allow more control
+    over which permutations are created
+  - Updated TLD list
+  - Updated keyword list to include more operational keywords
+
 ## 0.7.5 (2025-03-06)
 
 Feat:
