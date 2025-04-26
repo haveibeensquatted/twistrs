@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6872] = [
+pub const TLDS: [&str; 6871] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -494,7 +494,6 @@ pub const TLDS: [&str; 6872] = [
     "belem.br",
     "belluno.it",
     "benevento.it",
-    "bentley",
     "bentre.vn",
     "beppu.oita.jp",
     "berg.no",
