@@ -304,7 +304,7 @@ impl DomainMetadata {
         match &self.ips {
             Some(ips) => {
                 for ip in ips {
-                    if let Ok(lookup_result) = geoip.lookup::<geoip2::City>(*ip) {
+                    if let Ok(Some(lookup_result)) = geoip.lookup::<geoip2::City>(*ip) {
                         let mut geoip_string = String::new();
 
                         if lookup_result.city.is_some() {
