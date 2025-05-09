@@ -98,6 +98,7 @@ gateway
 global
 guide
 gulf
+help
 helpdesk
 helpme
 hk
