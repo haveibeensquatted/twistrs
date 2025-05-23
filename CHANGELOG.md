@@ -1,5 +1,12 @@
 # CHANGELOG.md
 
+## 0.8.2 (2025-05-23)
+
+Feat:
+
+  - Added `Domain::raw` which reduces TLD validation on domains
+  - Updated TLD list
+
 ## 0.8.0 (2025-04-15)
 
 Feat:
