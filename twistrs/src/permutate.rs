@@ -134,6 +134,39 @@ impl Domain {
         }
     }
 
+    /// Specialised form of `Domain::new` that does not perform certain validations. This is
+    /// enables downstream users to generate domains faster, with looser validation requirements.
+    pub fn raw(fqdn: &str) -> Result<Domain, Error> {
+        let parsed_domain =
+            List.parse_domain_name(fqdn)
+                .map_err(|_| PermutationError::InvalidDomain {
+                    expected: "valid domain name that can be parsed".to_string(),
+                    found: fqdn.to_string(),
+                })?;
+        let root_domain = parsed_domain
+            .root()
+            .ok_or(PermutationError::InvalidDomain {
+                expected: "valid domain name with a root domain".to_string(),
+                found: fqdn.to_string(),
+            })?;
+
+        let tld = parsed_domain.suffix().to_string();
+
+        Ok(Domain {
+            fqdn: fqdn.to_string(),
+            tld,
+            domain: root_domain
+                .find('.')
+                .and_then(|offset| root_domain.get(..offset))
+                // this should never error out since `root_domain` is a valid domain name
+                .ok_or(PermutationError::InvalidDomain {
+                    expected: "valid domain name with a root domain".to_string(),
+                    found: fqdn.to_string(),
+                })?
+                .to_string(),
+        })
+    }
+
     /// Generate any and all possible domain permutations for a given `Domain`.
     ///
     /// Returns `Iterator<String>` with an iterator of domain permutations
