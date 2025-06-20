@@ -1,5 +1,12 @@
 # CHANGELOG.md
 
+## 0.8.3 (2025-06-20)
+
+Misc:
+
+  - Updated TLD list
+  - Added `platform` to keyword list
+
 ## 0.8.2 (2025-05-23)
 
 Feat:
