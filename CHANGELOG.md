@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 0.8.4 (2025-07-31)
+
+Misc:
+
+  - Updated keywords to include banking and finance related keywords
+
 ## 0.8.3 (2025-06-20)
 
 Misc:
