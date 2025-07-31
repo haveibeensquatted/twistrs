@@ -19,6 +19,9 @@ auth2
 authn
 authz
 balkan
+bank
+banking
+banks
 benelux
 beta
 bill
@@ -61,6 +64,7 @@ contactus
 container
 corp
 credential
+credit
 crypt
 customer
 dach
@@ -89,6 +93,8 @@ europe
 exe
 faq
 fast
+finance
+fintech
 forgot
 forward
 foundation
@@ -121,6 +127,8 @@ join
 joinus
 jp
 launch
+lend
+lending
 login
 logon
 mail
@@ -130,6 +138,8 @@ mex
 mfa
 middleeast
 mobile
+mortgage
+mortgages
 msg
 multi
 mx
