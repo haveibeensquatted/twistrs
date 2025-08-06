@@ -1,5 +1,19 @@
 # CHANGELOG.md
 
+## 0.9.0 (2025-08-06)
+
+> :warning:
+> Minor breaking change: `hyphentation` had a typo and has now been renamed to `hyphenation`
+
+Feat:
+  - Added the `vowel_shuffle` permutation type which is a superset of the `vowel_swap` 
+    permutation type.
+  - Added the `hyphentation_tld_boundary` permutation type which is an edge-case on top
+    of the `hyphenation` permutation type.
+  
+Misc:
+  - Fixed typo in `hyphentation` function name (removed excess `t`).
+
 ## 0.8.4 (2025-07-31)
 
 Misc:
