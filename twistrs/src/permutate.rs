@@ -177,7 +177,8 @@ impl Domain {
     pub fn all<'a>(&'a self, filter: &'a impl Filter) -> impl Iterator<Item = Permutation> + 'a {
         self.addition(filter)
             .chain(self.bitsquatting(filter))
-            .chain(self.hyphentation(filter))
+            .chain(self.hyphenation(filter))
+            .chain(self.hyphenation_tld_boundary(filter))
             .chain(self.insertion(filter))
             .chain(self.omission(filter))
             .chain(self.repetition(filter))
@@ -314,7 +315,7 @@ impl Domain {
 
     /// Permutation method that inserts hyphens (i.e. `-`) between each
     /// character in the domain where valid.
-    pub fn hyphentation<'a>(
+    pub fn hyphenation<'a>(
         &'a self,
         filter: &'a impl Filter,
     ) -> impl Iterator<Item = Permutation> + 'a {
@@ -325,6 +326,27 @@ impl Domain {
                     permutation.insert(i, '-');
                     permutation
                 })
+            },
+            PermutationKind::Hyphenation,
+            filter,
+        )
+    }
+
+    /// In cases of multi-level TLDs, will swap the top-level dot to a hyphen. For example
+    /// `abcd.co.uk` would map to `abcd-co.uk`. Internally this still maps to the `Hyphenation`
+    /// permutation kind, however is a refined subset for performance purposes. Will always yield
+    /// at most, one permutation.
+    pub fn hyphenation_tld_boundary<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
+        Self::permutation(
+            move || {
+                // `then(..)` returns `Option<String>` with a single concrete type
+                // whether it is `Some` or `None`.
+                (self.tld.contains('.'))
+                    .then(|| format!("{}-{}", self.domain, self.tld))
+                    .into_iter() // Option → IntoIter (0‒1 items)
             },
             PermutationKind::Hyphenation,
             filter,
@@ -726,7 +748,7 @@ mod tests {
     #[test]
     fn test_hyphenation_mode() {
         let d = Domain::new("www.example.com").unwrap();
-        let permutations: Vec<_> = dbg!(d.hyphentation(&Permissive).collect());
+        let permutations: Vec<_> = dbg!(d.hyphenation(&Permissive).collect());
 
         assert!(!permutations.is_empty());
     }
@@ -957,5 +979,18 @@ mod tests {
         dbg!(&results);
 
         assert_eq!(results.len(), 3);
+    }
+
+    #[test]
+    fn test_hyphenation_tld_boundary_permutation() {
+        let domain = Domain::new("abcd.co.uk").unwrap();
+        let expected = Domain::new("abcd-co.uk").unwrap();
+
+        let results: Vec<Permutation> = domain
+            .hyphenation_tld_boundary(&Permissive)
+            .filter(|p| p.domain.fqdn == expected.fqdn)
+            .collect();
+
+        assert_eq!(results.len(), 1);
     }
 }
