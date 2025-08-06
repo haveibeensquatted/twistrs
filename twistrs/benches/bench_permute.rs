@@ -11,7 +11,7 @@ fn homoglyph(domain: &Domain) {
 }
 
 fn hyphentation(domain: &Domain) {
-    domain.hyphentation().for_each(drop)
+    domain.hyphenation().for_each(drop)
 }
 
 fn insertion(domain: &Domain) {
