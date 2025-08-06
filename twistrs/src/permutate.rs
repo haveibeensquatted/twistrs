@@ -28,9 +28,8 @@ use std::collections::HashSet;
 
 use addr::parser::DomainName;
 use addr::psl::List;
-use itertools::Itertools;
+use itertools::{repeat_n, Itertools};
 use serde::{Deserialize, Serialize};
-
 // Include further constants such as dictionaries that are
 // generated during compile time.
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
@@ -68,6 +67,7 @@ pub enum PermutationKind {
     Subdomain,
     Transposition,
     VowelSwap,
+    VowelShuffle,
     DoubleVowelInsertion,
     Keyword,
     Tld,
@@ -185,6 +185,7 @@ impl Domain {
             .chain(self.subdomain(filter))
             .chain(self.transposition(filter))
             .chain(self.vowel_swap(filter))
+            .chain(self.vowel_shuffle(filter))
             .chain(self.double_vowel_insertion(filter))
             .chain(self.keyword(filter))
             .chain(self.tld(filter))
@@ -523,6 +524,39 @@ impl Domain {
                     .flatten()
             },
             PermutationKind::VowelSwap,
+            filter,
+        )
+    }
+
+    /// A superset of [`vowel_swap`][`vowel_swap`], which computes the multiple cartesian product
+    /// of all vowels found in the domain, and maps them against their indices.
+    pub fn vowel_shuffle<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
+        Self::permutation(
+            move || {
+                let vowel_positions = self
+                    .domain
+                    .chars()
+                    .enumerate()
+                    .filter_map(|(i, c)| if VOWELS.contains(&c) { Some(i) } else { None })
+                    .collect_vec();
+
+                // |cartesian_product| = |VOWELS|^n = 5^n
+                let products = repeat_n(VOWELS, vowel_positions.len()).multi_cartesian_product();
+
+                products.map(move |replacement| {
+                    // build the new label
+                    let mut label: Vec<char> = self.domain.chars().collect();
+                    for (pos, &new_vowel) in vowel_positions.iter().zip(&replacement) {
+                        label[*pos] = new_vowel;
+                    }
+                    let fqdn = format!("{}.{}", label.iter().collect::<String>(), self.tld);
+                    fqdn
+                })
+            },
+            PermutationKind::VowelShuffle,
             filter,
         )
     }
@@ -904,5 +938,24 @@ mod tests {
         assert!(domain
             .all(&filter)
             .all(|p| p.domain.fqdn.contains("gov") || p.domain.fqdn.contains("uk")));
+    }
+
+    #[test]
+    fn test_vowel_shuffling_permutation() {
+        let domain = Domain::new("xiaomi.com").unwrap();
+        let expected = [
+            Domain::new("xoaimi.com").unwrap().fqdn,
+            Domain::new("xaoimi.com").unwrap().fqdn,
+            Domain::new("xiaoma.com").unwrap().fqdn,
+        ];
+
+        let results: Vec<Permutation> = domain
+            .vowel_shuffle(&Permissive)
+            .filter(|p| expected.contains(&p.domain.fqdn))
+            .collect();
+
+        dbg!(&results);
+
+        assert_eq!(results.len(), 3);
     }
 }
