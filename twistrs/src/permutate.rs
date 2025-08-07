@@ -554,6 +554,10 @@ impl Domain {
 
     /// A superset of [`vowel_swap`][`vowel_swap`], which computes the multiple cartesian product
     /// of all vowels found in the domain, and maps them against their indices.
+    ///
+    /// * `ceil`: limit the upperbound exponent of possible permutations that can be generated
+    ///   (i.e., 5^{ceil}) where 5 is the number of possible vowels, and `{ceil}` is the
+    ///   number of products to generate
     pub fn vowel_shuffle<'a>(
         &'a self,
         ceil: usize,
