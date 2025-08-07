@@ -20,7 +20,9 @@
 //!
 //! Additionally the permutation module can be used independently
 //! from the enrichment module.
-use crate::constants::{ASCII_LOWER, HOMOGLYPHS, KEYBOARD_LAYOUTS, MAPPED_VALUES, VOWELS};
+use crate::constants::{
+    ASCII_LOWER, HOMOGLYPHS, KEYBOARD_LAYOUTS, MAPPED_VALUES, VOWELS, VOWEL_SHUFFLE_CEILING,
+};
 use crate::error::Error;
 use crate::filter::Filter;
 
@@ -186,7 +188,7 @@ impl Domain {
             .chain(self.subdomain(filter))
             .chain(self.transposition(filter))
             .chain(self.vowel_swap(filter))
-            .chain(self.vowel_shuffle(filter))
+            .chain(self.vowel_shuffle(VOWEL_SHUFFLE_CEILING, filter))
             .chain(self.double_vowel_insertion(filter))
             .chain(self.keyword(filter))
             .chain(self.tld(filter))
@@ -554,6 +556,7 @@ impl Domain {
     /// of all vowels found in the domain, and maps them against their indices.
     pub fn vowel_shuffle<'a>(
         &'a self,
+        ceil: usize,
         filter: &'a impl Filter,
     ) -> impl Iterator<Item = Permutation> + 'a {
         Self::permutation(
@@ -566,7 +569,8 @@ impl Domain {
                     .collect_vec();
 
                 // |cartesian_product| = |VOWELS|^n = 5^n
-                let products = repeat_n(VOWELS, vowel_positions.len()).multi_cartesian_product();
+                let products =
+                    repeat_n(VOWELS, vowel_positions.len().min(ceil)).multi_cartesian_product();
 
                 products.map(move |replacement| {
                     // build the new label
@@ -972,13 +976,33 @@ mod tests {
         ];
 
         let results: Vec<Permutation> = domain
-            .vowel_shuffle(&Permissive)
+            .vowel_shuffle(VOWEL_SHUFFLE_CEILING, &Permissive)
             .filter(|p| expected.contains(&p.domain.fqdn))
             .collect();
 
         dbg!(&results);
 
         assert_eq!(results.len(), 3);
+    }
+
+    #[test]
+    fn test_vowel_shuffling_limit() {
+        let domain = Domain::new("haveibeensquatted.com").unwrap();
+        let results: Vec<Permutation> = domain
+            .vowel_shuffle(VOWEL_SHUFFLE_CEILING, &Permissive)
+            .collect();
+
+        #[allow(clippy::cast_possible_truncation)]
+        let ceil: u32 = VOWEL_SHUFFLE_CEILING as u32;
+        assert!(results.len() <= VOWELS.len().pow(ceil));
+
+        let results_exceeds: Vec<Permutation> = domain
+            .vowel_shuffle(VOWEL_SHUFFLE_CEILING + 1, &Permissive)
+            .collect();
+
+        #[allow(clippy::cast_possible_truncation)]
+        let ceil_exceeds: u32 = VOWEL_SHUFFLE_CEILING as u32;
+        assert!(results_exceeds.len() > VOWELS.len().pow(ceil_exceeds));
     }
 
     #[test]

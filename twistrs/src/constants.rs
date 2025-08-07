@@ -45,6 +45,10 @@ fn http_connector() -> HttpConnector {
     c
 }
 
+/// Applys a default limit to the `vowel_shuffling` permutation method to avoid blowing up the
+/// number of permuations.
+pub(crate) const VOWEL_SHUFFLE_CEILING: usize = 6;
+
 /// Static list of lowercase ASCII characters.
 pub static ASCII_LOWER: [char; 26] = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
