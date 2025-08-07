@@ -1,5 +1,10 @@
 # CHANGELOG.md
 
+## 0.9.1 (2025-08-07)
+
+Fix:
+  - Apply ceiling limit to `vowel_shuffling` permutation
+
 ## 0.9.0 (2025-08-06)
 
 > :warning:
