@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6913] = [
+pub const TLDS: [&str; 6912] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -5288,7 +5288,6 @@ pub const TLDS: [&str; 6913] = [
     "school.ge",
     "school.nz",
     "school.za",
-    "schools.nsw.edu.au",
     "schule",
     "schwarz",
     "sci.eg",
