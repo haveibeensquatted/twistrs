@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6912] = [
+pub const TLDS: [&str; 6916] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -275,6 +275,7 @@ pub const TLDS: [&str; 6912] = [
     "ap.it",
     "aparecida.br",
     "apartments",
+    "api.br",
     "app",
     "app.br",
     "apple",
@@ -2436,6 +2437,7 @@ pub const TLDS: [&str; 6912] = [
     "i.ng",
     "i.ph",
     "i.se",
+    "ia.br",
     "ia.us",
     "ibara.okayama.jp",
     "ibaraki.ibaraki.jp",
@@ -5533,6 +5535,7 @@ pub const TLDS: [&str; 6912] = [
     "soc.lk",
     "soccer",
     "social",
+    "social.br",
     "soctrang.vn",
     "sodegaura.chiba.jp",
     "soeda.fukuoka.jp",
@@ -6494,6 +6497,7 @@ pub const TLDS: [&str; 6912] = [
     "xxx",
     "xxx.ec",
     "xyz",
+    "xyz.br",
     "xz.cn",
     "y.bg",
     "y.se",
