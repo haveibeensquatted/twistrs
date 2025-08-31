@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6916] = [
+pub const TLDS: [&str; 6915] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -5016,7 +5016,6 @@ pub const TLDS: [&str; 6916] = [
     "recreation.aero",
     "red",
     "red.sv",
-    "redstone",
     "redumbrella",
     "reggio-calabria.it",
     "reggio-emilia.it",
