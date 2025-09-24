@@ -1,5 +1,10 @@
 # CHANGELOG.md
 
+## 0.9.2 (2025-09-24)
+
+Misc:
+  - Significantly extended keyword list
+
 ## 0.9.1 (2025-08-07)
 
 Fix:
