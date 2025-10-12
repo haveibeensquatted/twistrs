@@ -1,5 +1,10 @@
 # CHANGELOG.md
 
+## 0.9.3 (2025-10-12)
+
+Misc:
+  - Significantly extended keyword list to include shopping/brands/event related keywords
+
 ## 0.9.2 (2025-09-24)
 
 Misc:
