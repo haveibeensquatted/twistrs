@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6928] = [
+pub const TLDS: [&str; 6930] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -457,6 +457,7 @@ pub const TLDS: [&str; 6928] = [
     "bandai.fukushima.jp",
     "bando.ibaraki.jp",
     "bank",
+    "bank.in",
     "bar",
     "bar.ec",
     "bar.pro",
@@ -1635,6 +1636,7 @@ pub const TLDS: [&str; 6928] = [
     "film",
     "film.hu",
     "fin.ec",
+    "fin.in",
     "fin.tn",
     "final",
     "finance",
