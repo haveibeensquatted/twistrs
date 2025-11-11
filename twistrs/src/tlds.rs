@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6930] = [
+pub const TLDS: [&str; 6929] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -582,8 +582,6 @@ pub const TLDS: [&str; 6930] = [
     "bizen.okayama.jp",
     "bj",
     "bj.cn",
-    "bjarkoy.no",
-    "bjarkøy.no",
     "bjerkreim.no",
     "bjugn.no",
     "bl.it",
@@ -1405,6 +1403,7 @@ pub const TLDS: [&str; 6930] = [
     "edu.eg",
     "edu.es",
     "edu.et",
+    "edu.fj",
     "edu.fm",
     "edu.gd",
     "edu.ge",
@@ -2473,6 +2472,7 @@ pub const TLDS: [&str; 6930] = [
     "id.au",
     "id.bd",
     "id.cv",
+    "id.fj",
     "id.ir",
     "id.lv",
     "id.ly",
@@ -3830,7 +3830,6 @@ pub const TLDS: [&str; 6930] = [
     "mosjøen.no",
     "moskenes.no",
     "moss.no",
-    "mosvik.no",
     "motegi.tochigi.jp",
     "moto",
     "motobu.okinawa.jp",
