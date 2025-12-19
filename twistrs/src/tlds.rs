@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6930] = [
+pub const TLDS: [&str; 6933] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -2272,6 +2272,8 @@ pub const TLDS: [&str; 6930] = [
     "hemnes.no",
     "hemsedal.no",
     "herad.no",
+    "hercules-app.com",
+    "hercules-dev.com",
     "here",
     "hermes",
     "heroy.more-og-romsdal.no",
@@ -4478,6 +4480,7 @@ pub const TLDS: [&str; 6930] = [
     "ong",
     "ong.br",
     "onga.fukuoka.jp",
+    "onhercules.app",
     "onion",
     "onjuku.chiba.jp",
     "onl",
