@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6933] = [
+pub const TLDS: [&str; 6934] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -4643,6 +4643,7 @@ pub const TLDS: [&str; 6933] = [
     "org.se",
     "org.sg",
     "org.sh",
+    "org.sk",
     "org.sl",
     "org.sn",
     "org.so",
