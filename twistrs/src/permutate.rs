@@ -75,6 +75,15 @@ pub enum PermutationKind {
     Tld,
     Homoglyph,
     Mapped,
+
+    // @NOTE(juxhin): this is particularly ugly, as we should not be leaking internal permutation
+    // kinds publicly into the library. In reality `PermutationKind` should be wrapped internally
+    // to avoid confusing the library.
+    //
+    // For context to anyone that happens to read this -- this has been added to support
+    // certificate transparency generated domains as part of our [certgrep](https://certgrep.sh/)
+    // project.
+    CertificateTransparency,
 }
 
 #[derive(Clone, thiserror::Error, Debug)]
