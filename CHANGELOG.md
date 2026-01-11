@@ -1,5 +1,21 @@
 # CHANGELOG.md
 
+## 1.0.0 (2025-01-11)
+
+After over five years, we've finally gone about releasing our 1.0 release. This release shapes
+the library into a state that we feels meets all the needs we, and the community, have, while 
+also trimming some of the lingering issues we had in the past.
+
+The following is a breakdown of the notable changes:
+
+* :warning: The `enrich` module has been removed entirely. This is a breaking change, as it will
+  require consumers to implement their own enrichment, and re-introduce certain structs if
+  necessary.
+* Introduced a zero-allocation API for generating permutations. Ideal for environments with very
+  tight performance budgets.
+* Introduced a streaming version of the API such that permutations can be streamed to the called.
+  This is a very niche feature, but one that's particularly important for [Have I Been Squatted](https://haveibeensquatted.com/).
+
 ## 0.9.4 (2025-12-26)
 
 Misc:
