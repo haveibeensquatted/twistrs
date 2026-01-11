@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6934] = [
+pub static TLDS: [&str; 6934] = [
     "0.bg",
     "1.bg",
     "2.bg",
