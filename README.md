@@ -2,7 +2,7 @@
 
 <img align="left" width="20%" height="20%" src="res/logo-x1024.png">
 
-> Twistr is a Domain name permutation and enumeration library powered by Rust. It aims to directly port the well-known [dnstwist](https://github.com/elceef/dnstwist) tool allowing for fast and flexible interfacing capabilities with the core libraries based on client's requirements.
+> Twistr is a domain name permutation library powered by Rust. It aims to directly port the well-known [dnstwist](https://github.com/elceef/dnstwist) tool allowing for fast and flexible interfacing capabilities with the core libraries based on client's requirements.
 
 <br/><br/><br/><br/><br/><br/>
 
@@ -19,51 +19,40 @@ Keep in mind that this will not run with a release build and will be naturally s
 
 ## Usage
 
-The core library is composed of the domain permutation module and the domain enrichment module that can be used individually or chained together.
-
-The following is a boiled-down version of the [twistrs-cli example](examples/twistrs-cli/src/main.rs) that uses [tokio mpsc](https://docs.rs/tokio/0.2.22/tokio/sync/mpsc/index.html).
+The core library is composed of the domain permutation module.
 
 ```rust
-use twistrs::enrich::DomainMetadata;
+use twistrs::filter::Permissive;
 use twistrs::permutate::Domain;
 
-use tokio::sync::mpsc;
-
-#[tokio::main]
-async fn main() {
+fn main() {
     let domain = Domain::new("google.com").unwrap();
-    let permutations = domain.all().unwrap();
-
-    let (tx, mut rx) = mpsc::channel(1000);
-
-    for permutation in permutations {
-        let domain_metadata = DomainMetadata::new(permutation.clone());
-        let mut tx = tx.clone();
-
-        tokio::spawn(async move
-            if let Err(_) = tx.send((permutation.clone(), domain_metadata.dns_resolvable().await)).await {
-                println!("received dropped");
-                return;
-            }
-
-            drop(tx);
-        });
+    for permutation in domain.all(&Permissive) {
+        println!("{} {:?}", permutation.domain.fqdn, permutation.kind);
     }
+}
+```
 
-    drop(tx);
+### Allocation-free API
 
-    while let Some(i) = rx.recv().await {
-        println!("{:?}", i);
-    }
+For high-throughput use cases, use the visitor API to avoid allocating a new `String`/`Domain` per permutation:
+
+```rust
+use twistrs::filter::Permissive;
+use twistrs::permutate::Domain;
+
+fn main() {
+    let domain = Domain::new("google.com").unwrap();
+    domain.visit_all(&Permissive, |p| {
+        println!("{} {:?}", p.domain.fqdn, p.kind);
+    });
 }
 ```
 
 ## Features
 
-- Granular control over Permutation or Enrichment modules
-  + Use specific permutation algorithms (e.g. homoglyphs)
-  + Use specific data enrichment methods (e.g. DNS lookup)
-- Concurrency out of the box
+- Granular control over permutation algorithms (e.g. homoglyphs)
+- Allocation-free visitor API (`Domain::visit_all`)
 - Exceptionally fast end-to-end results
 - Core library allowing easy extensions (i.e. CLI, API & streams)
 
@@ -77,12 +66,7 @@ async fn main() {
 
 Q: If I want to use a different set of dictionaries to the one provided out of the box by the libary, how can I achieve that?
 
-A: Currently the library (for ease-of-use) bakes the dictionaries into the final binary through a build script. To customise this, you would need to update the [dictionary files](./twistrs/dictionaries/) and compile the library using `cargo b` or `cargo b --release`. You can also reference the library in your own Cargo.toml, pointing to a local copy.
-
-Q: How does the cached GeoIP lookup work?
-
-A: Currently requires the client to supply their own [`maxminddb`](https://docs.rs/maxminddb/0.15.0/maxminddb/struct.Reader.html) reader and dataset. Twistrs at this point in time
-is mostly an auxillliary wrapper to streamline processing of the DomainMetadata results.
+A: Currently the library (for ease-of-use) bakes the dictionaries into the final binary through a build script. To customise this, you would need to update the relevant files under [`twistrs/data`](twistrs/data) and compile the library using `cargo b` or `cargo b --release`. You can also reference the library in your own Cargo.toml, pointing to a local copy.
 
 ## License
 

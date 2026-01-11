@@ -11,13 +11,18 @@ use twistrs::filter::Permissive;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-use twistrs::enrich::DomainMetadata;
-use twistrs::permutate::{Domain, Permutation};
+use std::net::IpAddr;
+use twistrs::permutate::Domain;
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 
 type Users = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
+
+async fn resolve_ips(fqdn: &str) -> std::io::Result<Vec<IpAddr>> {
+    let addrs = tokio::net::lookup_host(format!("{}:80", fqdn)).await?;
+    Ok(addrs.map(|addr| addr.ip()).collect())
+}
 
 #[tokio::main]
 async fn main() {
@@ -94,22 +99,22 @@ async fn user_message(my_id: usize, msg: Message, users: &Users) {
             eprintln!("initiating dns resolution checks for user: {}", my_id);
 
             let domain = Domain::new(msg).unwrap();
-            let domain_permutations = domain.all(&Permissive).collect::<HashSet<Permutation>>();
+            let domain_permutations = domain
+                .all(&Permissive)
+                .map(|p| p.domain.fqdn)
+                .collect::<HashSet<String>>();
 
             for v in domain_permutations.into_iter() {
-                let domain_metadata = DomainMetadata::new(v.domain.fqdn.clone());
                 let tx = tx.clone();
 
                 tokio::spawn(async move {
-                    if let Ok(metadata) = domain_metadata.dns_resolvable().await {
-                        if let Some(ips) = metadata.ips {
-                            if tx.send(Ok(Message::text(format!("{:?}", ips)))).is_err() {
-                                println!("received dropped");
-                                return;
-                            }
-
-                            drop(tx);
+                    if let Ok(ips) = resolve_ips(&v).await {
+                        if tx.send(Ok(Message::text(format!("{:?}", ips)))).is_err() {
+                            println!("received dropped");
+                            return;
                         }
+
+                        drop(tx);
                     }
                 });
             }

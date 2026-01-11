@@ -23,17 +23,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Response: {:?}", res);
     }
 
-    println!("[+] Starting MX Checks...");
-
-    let request = tonic::Request::new(Fqdn {
-        fqdn: String::from("google.com"),
-    });
-
-    let mut response = client.send_mx_check(request).await?.into_inner();
-
-    while let Some(res) = response.message().await? {
-        println!("Response: {:?}", res);
-    }
-
     Ok(())
 }

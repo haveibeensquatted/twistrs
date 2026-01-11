@@ -16,10 +16,6 @@ fn main() {
         "#[allow(dead_code)]
                                                  static KEYWORDS: [&str; ",
     );
-    let mut whois_servers_string = String::from(
-        "#[allow(dead_code)]
-                                                  static WHOIS_RAW_JSON: &str = r#",
-    );
 
     match read_lines("./data/keywords.txt") {
         Ok(lines) => {
@@ -58,27 +54,8 @@ fn main() {
         ),
     }
 
-    // Compile the WhoIs server config to later perform WhoIs lookups against
-    match read_lines("./data/whois-servers.json") {
-        Ok(lines) => {
-            // Construct the in-memory JSON
-            whois_servers_string.push('"');
-            lines.for_each(|l| whois_servers_string.push_str(&l.unwrap()));
-            whois_servers_string.push_str("\"#;");
-        }
-        Err(e) => panic!(
-            "{}",
-            format!(
-                "unable to build library due to missing dictionary file(s): {}",
-                e
-            )
-        ),
-    }
-
     // Build the final output
     dicionary_output.push_str(&keywords_array_string);
-    dicionary_output.push('\n');
-    dicionary_output.push_str(&whois_servers_string);
 
     // Write out contents to the final Rust file artifact
     let out_dir = env::var("OUT_DIR").unwrap();

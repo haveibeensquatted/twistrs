@@ -4,12 +4,11 @@ use tokio::sync::mpsc;
 
 use tonic::{transport::Server, Request, Response, Status};
 
-use twistrs::enrich::DomainMetadata;
 use twistrs::filter::Permissive;
 use twistrs::permutate::Domain;
 
 use domain_enumeration::domain_enumeration_server::{DomainEnumeration, DomainEnumerationServer};
-use domain_enumeration::{DomainEnumerationResponse, Fqdn, MxCheckResponse};
+use domain_enumeration::{DomainEnumerationResponse, Fqdn};
 
 #[derive(Default)]
 pub struct DomainEnumerationService {}
@@ -17,7 +16,6 @@ pub struct DomainEnumerationService {}
 #[tonic::async_trait]
 impl DomainEnumeration for DomainEnumerationService {
     type SendDnsResolutionStream = mpsc::Receiver<Result<DomainEnumerationResponse, Status>>;
-    type SendMxCheckStream = mpsc::Receiver<Result<MxCheckResponse, Status>>;
 
     async fn send_dns_resolution(
         &self,
@@ -29,65 +27,21 @@ impl DomainEnumeration for DomainEnumerationService {
             .unwrap()
             .all(&Permissive)
         {
-            let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
+            let fqdn = permutation.domain.fqdn;
             let mut tx = tx.clone();
 
             // Spawn DNS Resolution check
             tokio::spawn(async move {
-                if let Ok(metadata) = domain_metadata.dns_resolvable().await {
-                    if let Some(ips) = metadata.ips {
-                        if tx
-                            .send(Ok(DomainEnumerationResponse {
-                                fqdn: permutation.domain.fqdn.to_string(),
-                                ips: ips.into_iter().map(|x| format!("{}", x)).collect(),
-                            }))
-                            .await
-                            .is_err()
-                        {
-                            println!("receiver dropped");
-                            return;
-                        }
-                    }
-                }
+                if let Ok(addrs) = tokio::net::lookup_host(format!("{}:80", &fqdn)).await {
+                    let ips = addrs.into_iter().map(|x| x.ip().to_string()).collect();
 
-                drop(tx);
-            });
-        }
-
-        drop(tx);
-
-        Ok(Response::new(rx))
-    }
-
-    async fn send_mx_check(
-        &self,
-        request: Request<Fqdn>,
-    ) -> Result<Response<Self::SendMxCheckStream>, Status> {
-        let (tx, rx) = mpsc::channel(64);
-
-        for permutation in Domain::new(&request.get_ref().fqdn)
-            .unwrap()
-            .all(&Permissive)
-        {
-            let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
-            let mut tx = tx.clone();
-
-            // Spawn DNS Resolution check
-            tokio::spawn(async move {
-                if let Ok(metadata) = domain_metadata.mx_check().await {
-                    if let Some(smtp) = metadata.smtp {
-                        if tx
-                            .send(Ok(MxCheckResponse {
-                                fqdn: permutation.domain.fqdn.to_string(),
-                                is_positive: smtp.is_positive,
-                                message: smtp.message,
-                            }))
-                            .await
-                            .is_err()
-                        {
-                            println!("receiver dropped");
-                            return;
-                        }
+                    if tx
+                        .send(Ok(DomainEnumerationResponse { fqdn, ips }))
+                        .await
+                        .is_err()
+                    {
+                        println!("receiver dropped");
+                        return;
                     }
                 }
 

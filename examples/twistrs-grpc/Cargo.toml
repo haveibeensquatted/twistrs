@@ -8,7 +8,7 @@ edition = "2021"
 twistrs = { path = "../../twistrs" }
 prost = "0.6.1"
 tonic = {version="0.2.0",features = ["tls"]}
-tokio = {version="0.2.18",features = ["stream", "macros"]}
+tokio = {version="0.2.18",features = ["macros", "net", "stream"]}
 futures = "0.3"
 
 [build-dependencies]

@@ -3,9 +3,6 @@
 //! module is _only_ concerned with generating possible permutations
 //! of a given domain.
 //!
-//! For details on how to validate whether domains are actively used,
-//! please see `enrich.rs`.
-//!
 //! Example:
 //!
 //! ```
@@ -18,15 +15,11 @@
 //! let domain_permutations: Vec<Permutation> = domain.all(&Permissive).collect();
 //! ```
 //!
-//! Additionally the permutation module can be used independently
-//! from the enrichment module.
 use crate::constants::{
     ASCII_LOWER, HOMOGLYPHS, KEYBOARD_LAYOUTS, MAPPED_VALUES, VOWELS, VOWEL_SHUFFLE_CEILING,
 };
 use crate::error::Error;
-use crate::filter::Filter;
-
-use std::collections::HashSet;
+use crate::filter::{Filter, FilterRef};
 
 use addr::parser::DomainName;
 use addr::psl::List;
@@ -51,9 +44,29 @@ pub struct Domain {
     pub domain: String,
 }
 
+/// A borrowed view of a parsed domain, used by allocation-free APIs.
+#[derive(Clone, Copy, Hash, Default, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct DomainRef<'a> {
+    /// The domain FQDN to generate permutations from.
+    pub fqdn: &'a str,
+
+    /// The top-level domain of the FQDN (e.g. `.com`).
+    pub tld: &'a str,
+
+    /// The remainder of the domain (e.g. `google`).
+    pub domain: &'a str,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Permutation {
     pub domain: Domain,
+    pub kind: PermutationKind,
+}
+
+/// A borrowed view of a permutation, used by allocation-free APIs.
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct PermutationRef<'a> {
+    pub domain: DomainRef<'a>,
     pub kind: PermutationKind,
 }
 
@@ -75,15 +88,6 @@ pub enum PermutationKind {
     Tld,
     Homoglyph,
     Mapped,
-
-    // @NOTE(juxhin): this is particularly ugly, as we should not be leaking internal permutation
-    // kinds publicly into the library. In reality `PermutationKind` should be wrapped internally
-    // to avoid confusing the library.
-    //
-    // For context to anyone that happens to read this -- this has been added to support
-    // certificate transparency generated domains as part of our [certgrep](https://certgrep.sh/)
-    // project.
-    CertificateTransparency,
 }
 
 #[derive(Clone, thiserror::Error, Debug)]
@@ -93,6 +97,79 @@ pub enum PermutationError {
 
     #[error("error generating homoglyph permutation (domain {domain:?}, homoglyph {homoglyph:?})")]
     InvalidHomoglyph { domain: String, homoglyph: String },
+}
+
+impl<'a> DomainRef<'a> {
+    /// Parse and validate a domain name into a borrowed representation.
+    pub fn new(fqdn: &'a str) -> Result<Self, Error> {
+        let parsed_domain =
+            List.parse_domain_name(fqdn)
+                .map_err(|_| PermutationError::InvalidDomain {
+                    expected: "valid domain name that can be parsed".to_string(),
+                    found: fqdn.to_string(),
+                })?;
+        let root_domain = parsed_domain
+            .root()
+            .ok_or(PermutationError::InvalidDomain {
+                expected: "valid domain name with a root domain".to_string(),
+                found: fqdn.to_string(),
+            })?;
+
+        let tld = parsed_domain.suffix();
+
+        // Verify that the TLD is in the list of known TLDs, this requires that
+        // the TLD data list is already ordered, otherwise the result of the
+        // binary search is meaningless. We also assume that all TLDs generated
+        // are lowercase already.
+        if TLDS.binary_search(&tld).is_ok() {
+            let domain = root_domain
+                .find('.')
+                .and_then(|offset| root_domain.get(..offset))
+                // this should never error out since `root_domain` is a valid domain name
+                .ok_or(PermutationError::InvalidDomain {
+                    expected: "valid domain name with a root domain".to_string(),
+                    found: fqdn.to_string(),
+                })?;
+
+            Ok(Self { fqdn, tld, domain })
+        } else {
+            let err = PermutationError::InvalidDomain {
+                expected: "valid domain tld in the list of accepted tlds globally".to_string(),
+                found: tld.to_string(),
+            };
+
+            Err(err.into())
+        }
+    }
+
+    /// Specialised form of `DomainRef::new` that does not validate the TLD against
+    /// the baked-in TLD list.
+    pub fn raw(fqdn: &'a str) -> Result<Self, Error> {
+        let parsed_domain =
+            List.parse_domain_name(fqdn)
+                .map_err(|_| PermutationError::InvalidDomain {
+                    expected: "valid domain name that can be parsed".to_string(),
+                    found: fqdn.to_string(),
+                })?;
+        let root_domain = parsed_domain
+            .root()
+            .ok_or(PermutationError::InvalidDomain {
+                expected: "valid domain name with a root domain".to_string(),
+                found: fqdn.to_string(),
+            })?;
+
+        let tld = parsed_domain.suffix();
+        let domain = root_domain
+            .find('.')
+            .and_then(|offset| root_domain.get(..offset))
+            // this should never error out since `root_domain` is a valid domain name
+            .ok_or(PermutationError::InvalidDomain {
+                expected: "valid domain name with a root domain".to_string(),
+                found: fqdn.to_string(),
+            })?;
+
+        Ok(Self { fqdn, tld, domain })
+    }
 }
 
 impl Domain {
@@ -205,6 +282,50 @@ impl Domain {
             .chain(self.homoglyph(filter))
     }
 
+    /// Allocation-free equivalent of [`Domain::all`].
+    ///
+    /// The provided `buffer` is reused for each candidate, which avoids allocating a new `String`
+    /// per permutation.
+    pub fn visit_all_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        self.visit_addition_with_buf(filter, buffer, visit);
+        self.visit_bitsquatting_with_buf(filter, buffer, visit);
+        self.visit_hyphenation_with_buf(filter, buffer, visit);
+        self.visit_hyphenation_tld_boundary_with_buf(filter, buffer, visit);
+        self.visit_insertion_with_buf(filter, buffer, visit);
+        self.visit_omission_with_buf(filter, buffer, visit);
+        self.visit_repetition_with_buf(filter, buffer, visit);
+        self.visit_replacement_with_buf(filter, buffer, visit);
+        self.visit_subdomain_with_buf(filter, buffer, visit);
+        self.visit_transposition_with_buf(filter, buffer, visit);
+        self.visit_vowel_swap_with_buf(filter, buffer, visit);
+        self.visit_vowel_shuffle_with_buf(VOWEL_SHUFFLE_CEILING, filter, buffer, visit);
+        self.visit_double_vowel_insertion_with_buf(filter, buffer, visit);
+        self.visit_keyword_with_buf(filter, buffer, visit);
+        self.visit_tld_with_buf(filter, buffer, visit);
+        self.visit_mapped_with_buf(filter, buffer, visit);
+        self.visit_homoglyph_with_buf(filter, buffer, visit);
+    }
+
+    /// Allocation-free equivalent of [`Domain::all`].
+    ///
+    /// Internally uses a reusable `String` buffer.
+    pub fn visit_all<FilterT, VisitT>(&self, filter: &FilterT, mut visit: VisitT)
+    where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let mut buffer = String::with_capacity(self.fqdn.len() + 32);
+        self.visit_all_with_buf(filter, &mut buffer, &mut visit);
+    }
+
     /// Add every ASCII lowercase character between the Domain
     /// (e.g. `google`) and top-level domain (e.g. `.com`).
     pub fn addition<'a>(
@@ -220,6 +341,26 @@ impl Domain {
             PermutationKind::Addition,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::addition`].
+    pub fn visit_addition_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        for c in ASCII_LOWER {
+            buffer.clear();
+            buffer.push_str(&self.domain);
+            buffer.push(c);
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Addition, filter, visit);
+        }
     }
 
     /// Following implementation takes inspiration from the following content:
@@ -276,52 +417,113 @@ impl Domain {
         )
     }
 
+    /// Allocation-free equivalent of [`Domain::bitsquatting`].
+    pub fn visit_bitsquatting_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        let len = fqdn.len();
+
+        for c in fqdn.chars() {
+            for mask_index in 0..8 {
+                let mask = 1 << mask_index;
+
+                // Can the below panic? Should we use a wider range (u32)?
+                let squatted_char: u8 = mask ^ (c as u8);
+
+                // Make sure we remain with ASCII range that we are happy with
+                if ((48..=57).contains(&squatted_char))
+                    || ((97..=122).contains(&squatted_char))
+                    || squatted_char == 45
+                {
+                    let inserted = squatted_char as char;
+                    for idx in 1..len {
+                        if !fqdn.is_char_boundary(idx) {
+                            continue;
+                        }
+
+                        buffer.clear();
+                        buffer.push_str(&fqdn[..idx]);
+                        buffer.push(inserted);
+                        buffer.push_str(&fqdn[idx..]);
+                        Self::emit_ref_candidate(
+                            buffer.as_str(),
+                            PermutationKind::Bitsquatting,
+                            filter,
+                            visit,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     /// Permutation method that replaces ASCII characters with multiple homoglyphs
     /// similar to the respective ASCII character.
     pub fn homoglyph<'a>(
         &'a self,
         filter: &'a impl Filter,
     ) -> impl Iterator<Item = Permutation> + 'a {
-        // Convert the candidate into a vector of chars for proper indexing.
         Self::permutation(
             move || {
-                let chars: Vec<char> = self.fqdn.chars().collect();
-                let len = chars.len();
-                let mut results = HashSet::new();
-
-                // For each possible window size (from 1 to the full length)
-                for ws in 1..=len {
-                    // For each starting index of the window
-                    for i in 0..=len - ws {
-                        let window = &chars[i..i + ws];
-                        // Iterate over each character position in the window.
-                        for j in 0..window.len() {
-                            let c = window[j];
-                            // Look up available homoglyphs for this character.
-                            if let Some(glyphs) = HOMOGLYPHS.get(&c) {
-                                // For each homoglyph candidate, create a new window and candidate string.
-                                for g in glyphs.chars() {
-                                    let mut new_window: Vec<char> = window.to_vec();
-                                    new_window[j] = g;
-                                    // Reassemble the new candidate string:
-                                    let new_candidate: String = chars[..i]
-                                        .iter()
-                                        .chain(new_window.iter())
-                                        .chain(chars[i + ws..].iter())
-                                        .collect();
-
-                                    results.insert(new_candidate);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                results.into_iter()
+                let fqdn = self.fqdn.as_str();
+                fqdn.char_indices()
+                    .filter_map(move |(idx, c)| {
+                        HOMOGLYPHS.get(&c).map(move |glyphs| (idx, c, glyphs))
+                    })
+                    .flat_map(move |(idx, c, glyphs)| {
+                        let next = idx + c.len_utf8();
+                        glyphs.chars().map(move |g| {
+                            let mut out = String::with_capacity(fqdn.len() + g.len_utf8());
+                            out.push_str(&fqdn[..idx]);
+                            out.push(g);
+                            out.push_str(&fqdn[next..]);
+                            out
+                        })
+                    })
             },
             PermutationKind::Homoglyph,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::homoglyph`].
+    pub fn visit_homoglyph_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+
+        for (idx, c) in fqdn.char_indices() {
+            let Some(glyphs) = HOMOGLYPHS.get(&c) else {
+                continue;
+            };
+            let next = idx + c.len_utf8();
+
+            for g in glyphs.chars() {
+                buffer.clear();
+                buffer.push_str(&fqdn[..idx]);
+                buffer.push(g);
+                buffer.push_str(&fqdn[next..]);
+                Self::emit_ref_candidate(
+                    buffer.as_str(),
+                    PermutationKind::Homoglyph,
+                    filter,
+                    visit,
+                );
+            }
+        }
     }
 
     /// Permutation method that inserts hyphens (i.e. `-`) between each
@@ -343,6 +545,30 @@ impl Domain {
         )
     }
 
+    /// Allocation-free equivalent of [`Domain::hyphenation`].
+    pub fn visit_hyphenation_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        for idx in 0..fqdn.len().saturating_sub(1) {
+            if !fqdn.is_char_boundary(idx) {
+                continue;
+            }
+
+            buffer.clear();
+            buffer.push_str(&fqdn[..idx]);
+            buffer.push('-');
+            buffer.push_str(&fqdn[idx..]);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Hyphenation, filter, visit);
+        }
+    }
+
     /// In cases of multi-level TLDs, will swap the top-level dot to a hyphen. For example
     /// `abcd.co.uk` would map to `abcd-co.uk`. Internally this still maps to the `Hyphenation`
     /// permutation kind, however is a refined subset for performance purposes. Will always yield
@@ -362,6 +588,27 @@ impl Domain {
             PermutationKind::Hyphenation,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::hyphenation_tld_boundary`].
+    pub fn visit_hyphenation_tld_boundary_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        if !self.tld.contains('.') {
+            return;
+        }
+
+        buffer.clear();
+        buffer.push_str(&self.domain);
+        buffer.push('-');
+        buffer.push_str(&self.tld);
+        Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Hyphenation, filter, visit);
     }
 
     /// Permutation method that inserts specific characters that are close to
@@ -399,6 +646,46 @@ impl Domain {
         )
     }
 
+    /// Allocation-free equivalent of [`Domain::insertion`].
+    pub fn visit_insertion_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        let len = fqdn.len();
+
+        // Mirror the current iterator implementation, including its indexing semantics.
+        for (i, c) in fqdn.chars().skip(1).take(len.saturating_sub(2)).enumerate() {
+            for layout in KEYBOARD_LAYOUTS.iter() {
+                let Some(keyboard_chars) = layout.get(&c) else {
+                    continue;
+                };
+
+                for keyboard_char in keyboard_chars.chars() {
+                    if !fqdn.is_char_boundary(i) {
+                        continue;
+                    }
+
+                    buffer.clear();
+                    buffer.push_str(&fqdn[..i]);
+                    buffer.push(keyboard_char);
+                    buffer.push_str(&fqdn[i..]);
+                    Self::emit_ref_candidate(
+                        buffer.as_str(),
+                        PermutationKind::Insertion,
+                        filter,
+                        visit,
+                    );
+                }
+            }
+        }
+    }
+
     /// Permutation method that selectively removes a character from the domain.
     pub fn omission<'a>(
         &'a self,
@@ -415,6 +702,26 @@ impl Domain {
             PermutationKind::Omission,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::omission`].
+    pub fn visit_omission_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        for (idx, c) in fqdn.char_indices() {
+            let next = idx + c.len_utf8();
+            buffer.clear();
+            buffer.push_str(&fqdn[..idx]);
+            buffer.push_str(&fqdn[next..]);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Omission, filter, visit);
+        }
     }
 
     /// Permutation method that repeats characters twice provided they are
@@ -436,6 +743,32 @@ impl Domain {
             PermutationKind::Repetition,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::repetition`].
+    pub fn visit_repetition_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+
+        for (idx, c) in fqdn.char_indices() {
+            if !c.is_alphabetic() {
+                continue;
+            }
+
+            let next = idx + c.len_utf8();
+            buffer.clear();
+            buffer.push_str(&fqdn[..next]);
+            buffer.push(c);
+            buffer.push_str(&fqdn[next..]);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Repetition, filter, visit);
+        }
     }
 
     /// Permutation method similar to insertion, except that it replaces a given
@@ -472,6 +805,47 @@ impl Domain {
         )
     }
 
+    /// Allocation-free equivalent of [`Domain::replacement`].
+    pub fn visit_replacement_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        let len = fqdn.len();
+
+        for (i, c) in fqdn.chars().skip(1).take(len.saturating_sub(2)).enumerate() {
+            for layout in KEYBOARD_LAYOUTS.iter() {
+                let Some(keyboard_chars) = layout.get(&c) else {
+                    continue;
+                };
+
+                for keyboard_char in keyboard_chars.chars() {
+                    if !fqdn.is_char_boundary(i) {
+                        continue;
+                    }
+
+                    // Mirror the current iterator implementation, including its indexing semantics.
+                    buffer.clear();
+                    buffer.push_str(&fqdn[..i]);
+                    buffer.push(keyboard_char);
+                    let replace_end = (i + 1).min(fqdn.len());
+                    buffer.push_str(&fqdn[replace_end..]);
+                    Self::emit_ref_candidate(
+                        buffer.as_str(),
+                        PermutationKind::Replacement,
+                        filter,
+                        visit,
+                    );
+                }
+            }
+        }
+    }
+
     pub fn subdomain<'a>(
         &'a self,
         filter: &'a impl Filter,
@@ -494,6 +868,42 @@ impl Domain {
             PermutationKind::Subdomain,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::subdomain`].
+    pub fn visit_subdomain_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        let len = fqdn.len();
+
+        for (i2, (c1, c2)) in fqdn
+            .chars()
+            .take(len.saturating_sub(3))
+            .tuple_windows::<(_, _)>()
+            .enumerate()
+            .map(|(idx, (c1, c2))| (idx + 1, (c1, c2)))
+        {
+            if ['-', '.'].iter().all(|x| [c1, c2].contains(x)) {
+                continue;
+            }
+
+            if !fqdn.is_char_boundary(i2) {
+                continue;
+            }
+
+            buffer.clear();
+            buffer.push_str(&fqdn[..i2]);
+            buffer.push('.');
+            buffer.push_str(&fqdn[i2..]);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Subdomain, filter, visit);
+        }
     }
 
     /// Permutation method that swaps out characters in the domain (e.g.
@@ -523,6 +933,41 @@ impl Domain {
             PermutationKind::Transposition,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::transposition`].
+    pub fn visit_transposition_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        let bytes = fqdn.as_bytes();
+
+        for i in 0..bytes.len().saturating_sub(1) {
+            let c1 = bytes[i] as char;
+            let c2 = bytes[i + 1] as char;
+            if c1 == c2 {
+                continue;
+            }
+
+            buffer.clear();
+            buffer.push_str(&fqdn[..i]);
+            buffer.push(c2);
+            buffer.push(c1);
+            let suffix_start = (i + 2).min(fqdn.len());
+            buffer.push_str(&fqdn[suffix_start..]);
+            Self::emit_ref_candidate(
+                buffer.as_str(),
+                PermutationKind::Transposition,
+                filter,
+                visit,
+            );
+        }
     }
 
     /// Permutation method that swaps vowels for other vowels (e.g.
@@ -559,6 +1004,43 @@ impl Domain {
             PermutationKind::VowelSwap,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::vowel_swap`].
+    pub fn visit_vowel_swap_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+
+        for (idx, c) in fqdn.char_indices() {
+            if !VOWELS.contains(&c.to_ascii_lowercase()) {
+                continue;
+            }
+
+            let next = idx + c.len_utf8();
+            for vowel in VOWELS {
+                if vowel == c {
+                    continue;
+                }
+
+                buffer.clear();
+                buffer.push_str(&fqdn[..idx]);
+                buffer.push(vowel);
+                buffer.push_str(&fqdn[next..]);
+                Self::emit_ref_candidate(
+                    buffer.as_str(),
+                    PermutationKind::VowelSwap,
+                    filter,
+                    visit,
+                );
+            }
+        }
     }
 
     /// A superset of [`vowel_swap`][`vowel_swap`], which computes the multiple cartesian product
@@ -600,6 +1082,72 @@ impl Domain {
         )
     }
 
+    /// Allocation-free equivalent of [`Domain::vowel_shuffle`].
+    pub fn visit_vowel_shuffle_with_buf<FilterT, VisitT>(
+        &self,
+        ceil: usize,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let vowel_positions = self
+            .domain
+            .chars()
+            .enumerate()
+            .filter_map(|(i, c)| if VOWELS.contains(&c) { Some(i) } else { None })
+            .collect_vec();
+
+        let n = vowel_positions.len().min(ceil);
+        if n == 0 {
+            return;
+        }
+
+        let mut digits = vec![0usize; n];
+        loop {
+            buffer.clear();
+
+            let mut v = 0usize;
+            for (i, c) in self.domain.chars().enumerate() {
+                if v < n && vowel_positions[v] == i {
+                    buffer.push(VOWELS[digits[v]]);
+                    v += 1;
+                } else {
+                    buffer.push(c);
+                }
+            }
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+
+            Self::emit_ref_candidate(
+                buffer.as_str(),
+                PermutationKind::VowelShuffle,
+                filter,
+                visit,
+            );
+
+            // Increment base-|VOWELS| counter.
+            let mut carry = true;
+            for d in digits.iter_mut().rev() {
+                if !carry {
+                    break;
+                }
+                *d += 1;
+                if *d == VOWELS.len() {
+                    *d = 0;
+                } else {
+                    carry = false;
+                }
+            }
+
+            if carry {
+                break;
+            }
+        }
+    }
+
     /// Permutation method that inserts every lowercase ascii character between
     /// two vowels.
     pub fn double_vowel_insertion<'a>(
@@ -630,6 +1178,44 @@ impl Domain {
         )
     }
 
+    /// Allocation-free equivalent of [`Domain::double_vowel_insertion`].
+    pub fn visit_double_vowel_insertion_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let fqdn = self.fqdn.as_str();
+        let bytes = fqdn.as_bytes();
+
+        for i in 0..bytes.len().saturating_sub(1) {
+            let c1 = bytes[i] as char;
+            let c2 = bytes[i + 1] as char;
+
+            if !(VOWELS.contains(&c1.to_ascii_lowercase())
+                && VOWELS.contains(&c2.to_ascii_lowercase()))
+            {
+                continue;
+            }
+
+            for inserted in ASCII_LOWER {
+                buffer.clear();
+                buffer.push_str(&fqdn[..=i]);
+                buffer.push(inserted);
+                buffer.push_str(&fqdn[i + 1..]);
+                Self::emit_ref_candidate(
+                    buffer.as_str(),
+                    PermutationKind::DoubleVowelInsertion,
+                    filter,
+                    visit,
+                );
+            }
+        }
+    }
+
     /// Permutation mode that appends and prepends common keywords to the
     /// domain in the following order:
     ///
@@ -658,6 +1244,53 @@ impl Domain {
         )
     }
 
+    /// Allocation-free equivalent of [`Domain::keyword`].
+    pub fn visit_keyword_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        for keyword in KEYWORDS {
+            // 1. Append keyword and dash (e.g. `foo.com` -> `foo-word.com`)
+            buffer.clear();
+            buffer.push_str(&self.domain);
+            buffer.push('-');
+            buffer.push_str(keyword);
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Keyword, filter, visit);
+
+            // 2. Append keyword (e.g. `foo.com` -> `fooword.com`)
+            buffer.clear();
+            buffer.push_str(&self.domain);
+            buffer.push_str(keyword);
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Keyword, filter, visit);
+
+            // 3. Prepend keyword and dash (e.g. `foo.com` -> `word-foo.com`)
+            buffer.clear();
+            buffer.push_str(keyword);
+            buffer.push('-');
+            buffer.push_str(&self.domain);
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Keyword, filter, visit);
+
+            // 4. Prepend keyword (e.g. `foo.com` -> `wordfoo.com`)
+            buffer.clear();
+            buffer.push_str(keyword);
+            buffer.push_str(&self.domain);
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Keyword, filter, visit);
+        }
+    }
+
     /// Permutation method that replaces all TLDs as variations of the
     /// root domain passed.
     pub fn tld<'a>(&'a self, filter: &'a impl Filter) -> impl Iterator<Item = Permutation> + 'a {
@@ -666,9 +1299,28 @@ impl Domain {
                 TLDS.iter()
                     .map(move |tld| format!("{}.{}", &self.domain, tld))
             },
-            PermutationKind::Mapped,
+            PermutationKind::Tld,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::tld`].
+    pub fn visit_tld_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        for tld in TLDS {
+            buffer.clear();
+            buffer.push_str(&self.domain);
+            buffer.push('.');
+            buffer.push_str(tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Tld, filter, visit);
+        }
     }
 
     /// Permutation method that maps one or more characters into another
@@ -699,6 +1351,56 @@ impl Domain {
             PermutationKind::Mapped,
             filter,
         )
+    }
+
+    /// Allocation-free equivalent of [`Domain::mapped`].
+    pub fn visit_mapped_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        for (key, values) in MAPPED_VALUES.entries() {
+            if !self.domain.contains(key) {
+                continue;
+            }
+
+            for mapped_value in *values {
+                buffer.clear();
+
+                let mut split = self.domain.split(key).peekable();
+                while let Some(part) = split.next() {
+                    buffer.push_str(part);
+                    if split.peek().is_some() {
+                        buffer.push_str(mapped_value);
+                    }
+                }
+
+                buffer.push('.');
+                buffer.push_str(&self.tld);
+
+                Self::emit_ref_candidate(buffer.as_str(), PermutationKind::Mapped, filter, visit);
+            }
+        }
+    }
+
+    fn emit_ref_candidate<FilterT, VisitT>(
+        candidate: &str,
+        kind: PermutationKind,
+        filter: &FilterT,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        if let Ok(domain) = DomainRef::new(candidate) {
+            if filter.matches(domain) {
+                visit(PermutationRef { domain, kind });
+            }
+        }
     }
 
     /// Auxilliary function that wraps each permutation function in order to perform validation and
@@ -744,6 +1446,20 @@ mod tests {
         let permutations: Vec<_> = dbg!(d.addition(&Permissive).collect());
 
         assert_eq!(permutations.len(), ASCII_LOWER.len());
+    }
+
+    #[test]
+    fn test_visit_addition_matches_addition() {
+        let d = Domain::new("www.example.com").unwrap();
+        let expected: Vec<String> = d.addition(&Permissive).map(|p| p.domain.fqdn).collect();
+
+        let mut buffer = String::new();
+        let mut actual: Vec<String> = Vec::new();
+        d.visit_addition_with_buf(&Permissive, &mut buffer, &mut |p| {
+            actual.push(p.domain.fqdn.to_string());
+        });
+
+        assert_eq!(actual, expected);
     }
 
     #[test]
