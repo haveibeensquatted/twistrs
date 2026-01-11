@@ -1,3 +1,4 @@
+use crate::permutate::DomainRef;
 use crate::Domain;
 
 /// The `Filter` trait provides functions that allow filtering of permutations given a certain
@@ -14,6 +15,19 @@ pub trait Filter {
     }
 }
 
+/// An allocation-free filter that operates on [`DomainRef`].
+#[allow(clippy::module_name_repetitions)]
+pub trait FilterRef {
+    type Error;
+
+    fn matches(&self, domain: DomainRef<'_>) -> bool;
+
+    /// **Note** &mdash; this is currently not being used internally.
+    fn try_matches(&self, domain: DomainRef<'_>) -> Result<bool, Self::Error> {
+        Ok(Self::matches(self, domain))
+    }
+}
+
 /// Open filter, all results are retained; similar to a wildcard.
 #[derive(Default, Copy, Clone)]
 pub struct Permissive;
@@ -22,6 +36,14 @@ impl Filter for Permissive {
     type Error = ();
 
     fn matches(&self, _: &Domain) -> bool {
+        true
+    }
+}
+
+impl FilterRef for Permissive {
+    type Error = ();
+
+    fn matches(&self, _: DomainRef<'_>) -> bool {
         true
     }
 }
@@ -46,6 +68,16 @@ impl<S: AsRef<str>> Filter for Substring<'_, S> {
     type Error = ();
 
     fn matches(&self, domain: &Domain) -> bool {
+        self.substrings
+            .iter()
+            .any(|s| domain.fqdn.contains(s.as_ref()))
+    }
+}
+
+impl<S: AsRef<str>> FilterRef for Substring<'_, S> {
+    type Error = ();
+
+    fn matches(&self, domain: DomainRef<'_>) -> bool {
         self.substrings
             .iter()
             .any(|s| domain.fqdn.contains(s.as_ref()))

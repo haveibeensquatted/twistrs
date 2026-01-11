@@ -1,59 +1,19 @@
-//! Twistrs is a domain name permutation and enumeration library
-//! that is built on top of async Rust.
+//! Twistrs is a domain name permutation library.
 //!
-//! The library is designed to be fast, modular and easy-to-use
-//! for clients.
+//! The library is designed to be fast, modular and easy-to-use for clients.
 //!
-//! The two primary structs to look into are [Domain](./permutate/struct.Domain.html)
-//! and [`DomainMetadata`](./enrich/struct.DomainMetadata.html).
-//!
-//! Additionally the module documentation for [permutation](./permutate/index.html)
-//! and [enumeration](./enrich/index.html) provides more
-//! granular details on how each module may be used indepedently.
-//!
-//! domain permutation and enrichment asynchronously.
+//! The primary struct to look into is [`Domain`](permutate::Domain).
 //!
 //! ### Example
-//!
-//! The following is a trivial example using [Tokio mpsc](https://docs.rs/tokio/0.2.22/tokio/sync/mpsc/index.html).
 //!
 //! ```
 //! use twistrs::{
 //!   permutate::{Domain},
-//!   enrich::DomainMetadata,
-//!   filter::{Filter, Permissive},
+//!   filter::Permissive,
 //! };
-//!
-//! use tokio::sync::mpsc;
-//!
-//!
-//! #[tokio::main]
-//! async fn main() {
-//!     let domain = Domain::new("google.com").unwrap();
-//!     let permutations = domain.addition(&Permissive);
-//!
-//!     let (tx, mut rx) = mpsc::channel(1000);
-//!
-//!     for permutation in permutations {
-//!         let domain_metadata = DomainMetadata::new(permutation.domain.fqdn.clone());
-//!         let mut tx = tx.clone();
-//!
-//!         tokio::spawn(async move {
-//!             if let Err(_) = tx.send((permutation.clone(), domain_metadata.dns_resolvable().await)).await {
-//!                 println!("received dropped");
-//!                 return;
-//!             }
-//!
-//!             drop(tx);
-//!         });
-//!     }
-//!
-//!     drop(tx);
-//!
-//!     while let Some(i) = rx.recv().await {
-//!         println!("{:?}", i);
-//!     }
-//! }
+//! let domain = Domain::new("google.com").unwrap();
+//! let permutations = domain.all(&Permissive).collect::<Vec<_>>();
+//! assert!(!permutations.is_empty());
 //! ```
 
 #![deny(
@@ -124,10 +84,11 @@
 extern crate lazy_static;
 
 pub mod constants;
-pub mod enrich;
 pub mod error;
 pub mod filter;
 pub mod permutate;
 pub mod tlds;
 
-pub use permutate::{Domain, Permutation, PermutationError, PermutationKind};
+pub use permutate::{
+    Domain, DomainRef, Permutation, PermutationError, PermutationKind, PermutationRef,
+};

@@ -1,6 +1,6 @@
 # Twistrs CLI Example
 
-A trivial CLI powered by Twistrs and Clap to generate and enrich domains.
+A trivial CLI powered by Twistrs and Clap to generate domain permutations and perform DNS resolution.
 
 ## Demo
 

@@ -1,7 +1,7 @@
 [package]
 name = "twistrs"
 version = "0.9.4"
-description = "An asynchronous domain name permutation and enumeration library."
+description = "A domain name permutation library."
 license = "MIT"
 repository = "https://github.com/JuxhinDB/twistrs"
 documentation  = "https://docs.rs/crate/twistrs"
@@ -12,36 +12,19 @@ edition = "2021"
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[package.metadata.playground]
-features = ["full"]
-
-[features]
-default = [ "smtp_lookup" ]
-smtp_lookup = [ "async-smtp" ]
-geoip_lookup = [ "maxminddb" ]
-whois_lookup = [ "whois-rust" ]
-
 [dependencies]
 addr = "0.15.6"
 lazy_static = "1.4.0"
 phf	= { version = "0.11.2", features = ["macros"] }
-async-smtp = { version = "0.9.0", optional = true }
-futures = "0.3.28"
-tokio = { version = "1.29.1", features = ["full"] }
-hyper = { version = "0.14.20", features = ["client", "http1", "http2", "tcp"] }
 itertools = "0.14.0"
 serde = { version = "1.0.171", features = ["derive"]}
-maxminddb = { version = "0.26.0", optional = true}
-whois-rust = { version = "1.5.1", optional = true}
 thiserror = "1.0.43"
-anyhow = "1.0.71"
 
 [build-dependencies]
 punycode = "0.4.1"
 
 [dev-dependencies]
 criterion = "0.5.1"
-tokio  = { version = "1.29.1", features = ["macros"] }
 
 [[bench]]
 name = "permute"

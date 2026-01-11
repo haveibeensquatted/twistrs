@@ -4,7 +4,6 @@ package domain_enumeration;
 
 service DomainEnumeration {
     rpc SendDnsResolution(Fqdn) returns (stream DomainEnumerationResponse);
-    rpc SendMxCheck(Fqdn) returns (stream MxCheckResponse);
 } 
 
 message Fqdn {
@@ -15,9 +14,3 @@ message DomainEnumerationResponse {
     string fqdn = 1;
     repeated string ips = 2;
 }
-
-message MxCheckResponse {
-    string fqdn = 1;
-    string message = 2;
-    bool is_positive = 3;
-} 

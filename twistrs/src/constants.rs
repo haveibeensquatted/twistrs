@@ -1,48 +1,11 @@
 use phf::phf_map;
 
-#[cfg(feature = "whois_lookup")]
-use whois_rust::WhoIs;
-
-use hyper::client::Client;
-use hyper::client::HttpConnector;
-
-// Include further constants such as dictionaries that are
-// generated during compile time.
-include!(concat!(env!("OUT_DIR"), "/data.rs"));
-
 lazy_static! {
     pub static ref KEYBOARD_LAYOUTS: Vec<&'static phf::Map<char, &'static str>> = vec![
         &QWERTY_KEYBOARD_LAYOUT,
         &QWERTZ_KEYBOARD_LAYOUT,
         &AZERTY_KEYBOARD_LAYOUT
     ];
-
-
-    /// Global HTTP client we use throughout the library
-    pub static ref HTTP_CLIENT: Client<HttpConnector> = Client::builder()
-        .pool_idle_timeout(std::time::Duration::from_secs(30))
-        .http2_only(false)
-        .http1_read_buf_exact_size(1024)
-        .retry_canceled_requests(false)
-        .build(http_connector());
-}
-
-// This is currently a bit annoying, however since the WHOIS lookup table
-// is build at runtime, and is feature-gated, we cannot have this activated
-// within the original lazy_static! macro. We would need to block the
-// entire macro behind the feature gate instead.
-#[cfg(feature = "whois_lookup")]
-lazy_static! {
-    pub static ref WHOIS: WhoIs = WhoIs::from_string(WHOIS_RAW_JSON).unwrap();
-}
-
-/// Internal helper to create an HTTP Connector
-fn http_connector() -> HttpConnector {
-    let mut c = HttpConnector::new();
-    c.set_recv_buffer_size(Some(1024));
-    c.set_connect_timeout(Some(std::time::Duration::new(5, 0)));
-    c.enforce_http(true);
-    c
 }
 
 /// Applys a default limit to the `vowel_shuffling` permutation method to avoid blowing up the
