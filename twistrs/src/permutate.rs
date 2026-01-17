@@ -86,6 +86,7 @@ pub enum PermutationKind {
     DoubleVowelInsertion,
     Keyword,
     Tld,
+    FauxTld,
     Homoglyph,
     Mapped,
 }
@@ -278,6 +279,7 @@ impl Domain {
             .chain(self.double_vowel_insertion(filter))
             .chain(self.keyword(filter))
             .chain(self.tld(filter))
+            .chain(self.faux_tld(filter))
             .chain(self.mapped(filter))
             .chain(self.homoglyph(filter))
     }
@@ -310,6 +312,7 @@ impl Domain {
         self.visit_double_vowel_insertion_with_buf(filter, buffer, visit);
         self.visit_keyword_with_buf(filter, buffer, visit);
         self.visit_tld_with_buf(filter, buffer, visit);
+        self.visit_faux_tld_with_buf(filter, buffer, visit);
         self.visit_mapped_with_buf(filter, buffer, visit);
         self.visit_homoglyph_with_buf(filter, buffer, visit);
     }
@@ -1335,6 +1338,56 @@ impl Domain {
         }
     }
 
+    /// Permutation method that inserts faux TLDs before the original TLD, with and without a
+    /// hyphen separator.
+    pub fn faux_tld<'a>(
+        &'a self,
+        filter: &'a impl Filter,
+    ) -> impl Iterator<Item = Permutation> + 'a {
+        Self::permutation(
+            move || {
+                TLDS.iter().flat_map(move |tld| {
+                    let faux = tld.replace('.', "-");
+                    [
+                        format!("{}-{}.{}", &self.domain, faux, &self.tld),
+                        format!("{}{}.{}", &self.domain, faux, &self.tld),
+                    ]
+                    .into_iter()
+                })
+            },
+            PermutationKind::FauxTld,
+            filter,
+        )
+    }
+
+    /// Allocation-free equivalent of [`Domain::faux_tld`].
+    pub fn visit_faux_tld_with_buf<FilterT, VisitT>(
+        &self,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        for tld in TLDS {
+            buffer.clear();
+            buffer.push_str(&self.domain);
+            buffer.push('-');
+            push_faux_tld_label(buffer, tld);
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::FauxTld, filter, visit);
+
+            buffer.clear();
+            buffer.push_str(&self.domain);
+            push_faux_tld_label(buffer, tld);
+            buffer.push('.');
+            buffer.push_str(&self.tld);
+            Self::emit_ref_candidate(buffer.as_str(), PermutationKind::FauxTld, filter, visit);
+        }
+    }
+
     /// Permutation method that maps one or more characters into another
     /// set of one or more characters that are similar, or easy to miss,
     /// such as `d` -> `cl`, `ck` -> `kk`.
@@ -1435,6 +1488,17 @@ impl Domain {
 
             None
         })
+    }
+}
+
+fn push_faux_tld_label(buffer: &mut String, tld: &str) {
+    let mut parts = tld.split('.');
+    if let Some(part) = parts.next() {
+        buffer.push_str(part);
+        for part in parts {
+            buffer.push('-');
+            buffer.push_str(part);
+        }
     }
 }
 
@@ -1652,7 +1716,10 @@ where
                 }
                 AllPermutationsStage::Tld { idx } => {
                     if *idx >= TLDS.len() {
-                        self.stage = AllPermutationsStage::Mapped(MappedState::new());
+                        self.stage = AllPermutationsStage::FauxTld {
+                            idx: 0,
+                            with_hyphen: true,
+                        };
                         continue;
                     }
 
@@ -1662,6 +1729,29 @@ where
                     self.buffer.push_str(TLDS[*idx]);
                     *idx += 1;
                     PermutationKind::Tld
+                }
+                AllPermutationsStage::FauxTld { idx, with_hyphen } => {
+                    if *idx >= TLDS.len() {
+                        self.stage = AllPermutationsStage::Mapped(MappedState::new());
+                        continue;
+                    }
+
+                    let emit_hyphen = *with_hyphen;
+                    self.buffer.clear();
+                    self.buffer.push_str(&self.domain.domain);
+                    if emit_hyphen {
+                        self.buffer.push('-');
+                    }
+                    push_faux_tld_label(&mut self.buffer, TLDS[*idx]);
+                    self.buffer.push('.');
+                    self.buffer.push_str(&self.domain.tld);
+                    if emit_hyphen {
+                        *with_hyphen = false;
+                    } else {
+                        *with_hyphen = true;
+                        *idx += 1;
+                    }
+                    PermutationKind::FauxTld
                 }
                 AllPermutationsStage::Mapped(state) => {
                     if !state.next_candidate(
@@ -1745,6 +1835,7 @@ enum AllPermutationsStage {
     DoubleVowelInsertion(DoubleVowelInsertionState),
     Keyword(KeywordState),
     Tld { idx: usize },
+    FauxTld { idx: usize, with_hyphen: bool },
     Mapped(MappedState),
     Homoglyph(HomoglyphState),
     Done,
@@ -2650,6 +2741,24 @@ mod tests {
         let permutations: Vec<_> = dbg!(d.tld(&Permissive).collect());
 
         assert!(!permutations.is_empty());
+    }
+
+    #[test]
+    fn test_faux_tld_mode() {
+        let domain = Domain::new("google.com").unwrap();
+        let expected = [
+            Domain::new("google-com.com").unwrap().fqdn,
+            Domain::new("googlecom.com").unwrap().fqdn,
+            Domain::new("google-co-uk.com").unwrap().fqdn,
+            Domain::new("googleco-uk.com").unwrap().fqdn,
+        ];
+
+        let results: Vec<Permutation> = domain
+            .faux_tld(&Permissive)
+            .filter(|p| expected.contains(&p.domain.fqdn))
+            .collect();
+
+        assert_eq!(results.len(), 4);
     }
 
     #[test]
