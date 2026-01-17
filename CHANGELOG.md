@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 1.1.0 (2025-01-17)
+
+# Feat
+
+* Added `faux_tld` permutation method
+
 ## 1.0.0 (2025-01-11)
 
 After over five years, we've finally gone about releasing our 1.0 release. This release shapes
