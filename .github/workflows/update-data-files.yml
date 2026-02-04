@@ -1,4 +1,4 @@
-name: Update TLDs
+name: Update data files
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  update_tlds:
+  update_data_files:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -15,6 +15,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: true
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -33,6 +34,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests
 
-      - name: Run update script
-        run: python twistrs/data/update-psl.py
+      - name: Update GeoIP submodule
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --remote --merge twistrs/data/MaxMind-DB
 
+      - name: Run update script
+        run: python twistrs/data/update-data-files.py
