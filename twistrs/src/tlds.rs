@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub static TLDS: [&str; 6934] = [
+pub const TLDS: [&str; 6930] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -2272,8 +2272,6 @@ pub static TLDS: [&str; 6934] = [
     "hemnes.no",
     "hemsedal.no",
     "herad.no",
-    "hercules-app.com",
-    "hercules-dev.com",
     "here",
     "hermes",
     "heroy.more-og-romsdal.no",
@@ -4480,7 +4478,6 @@ pub static TLDS: [&str; 6934] = [
     "ong",
     "ong.br",
     "onga.fukuoka.jp",
-    "onhercules.app",
     "onion",
     "onjuku.chiba.jp",
     "onl",
@@ -4793,7 +4790,6 @@ pub static TLDS: [&str; 6934] = [
     "per.la",
     "per.nf",
     "perso.ht",
-    "perso.sn",
     "perso.tn",
     "perugia.it",
     "pesaro-urbino.it",
