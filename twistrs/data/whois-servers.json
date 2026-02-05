@@ -52,7 +52,7 @@
   "coop": "whois.nic.coop",
   "info": "whois.afilias.net",
   "jobs": "jobswhois.verisign-grs.com",
-  "mobi": "whois.dotmobiregistry.net",
+  "mobi": "whois.nic.mobi",
   "museum": "whois.museum",
   "name": "whois.nic.name",
   "post": "whois.dotpostregistry.net",
@@ -282,7 +282,7 @@
   "motorcycles": "whois.nic.motorcycles",
   "movie": "whois.nic.movie",
   "nagoya": "whois.nic.nagoya",
-  "navy": "whois.nic.navy",  
+  "navy": "whois.nic.navy",
   "network": "whois.nic.network",
   "neustar": "whois.nic.neustar",
   "news": "whois.nic.news",
@@ -442,7 +442,7 @@
   "xn--unup4y": "whois.nic.xn--unup4y",
   "xn--vhquv": "whois.nic.xn--vhquv",
   "xn--zfr164b": "whois.nic.xn--zfr164b",
-  "xyz": "whois.namecheap.com",
+  "xyz": "whois.nic.xyz",
   "yachts": "whois.nic.yachts",
   "yokohama": "whois.nic.yokohama",
   "zone": "whois.nic.zone",
@@ -501,7 +501,7 @@
   "edu.cn": "whois.edu.cn",
   "cn": "whois.cnnic.cn",
   "uk.co": "whois.uk.co",
-  "co": "whois.nic.co",
+  "co": "whois.registry.co",
   "cr": "whois.nic.cr",
   "cu": null,
   "cv": null,
@@ -510,14 +510,14 @@
   "cy": null,
   "cz": "whois.nic.cz",
   "de": {
-      "host": "whois.denic.de",
-      "query": "-T dn $addr\r\n",
-      "punycode": false
+    "host": "whois.denic.de",
+    "query": "-T dn $addr\r\n",
+    "punycode": false
   },
   "dj": null,
   "dk": {
-      "host": "whois.dk-hostmaster.dk",
-      "query": "--charset=utf-8 --show-handles $addr\r\n"
+    "host": "whois.dk-hostmaster.dk",
+    "query": "--charset=utf-8 --show-handles $addr\r\n"
   },
   "dm": "whois.nic.dm",
   "do": "whois.nic.do",
@@ -575,8 +575,8 @@
   "jm": null,
   "jo": null,
   "jp": {
-      "host": "whois.jprs.jp",
-      "query": "$addr/e\r\n"
+    "host": "whois.jprs.jp",
+    "query": "$addr/e\r\n"
   },
   "ke": "whois.kenic.or.ke",
   "kg": "whois.domain.kg",
@@ -637,7 +637,7 @@
   "np": null,
   "nr": null,
   "nu": "whois.iis.nu",
-  "nz": "whois.srs.net.nz",
+  "nz": "whois.irs.net.nz",
   "om": "whois.registry.om",
   "pa": null,
   "pe": "kero.yachay.pe",
@@ -782,7 +782,7 @@
   "xn--yfro4i67o": "whois.sgnic.sg",
   "xn--ygbi2ammx": "whois.pnina.ps",
 
-  "": "whois.ripe.net",
+  "": "whois.iana.org",
 
   "_": {
     "ip": {
