@@ -37,7 +37,7 @@ jobs:
       - name: Update GeoIP submodule
         run: |
           git submodule sync --recursive
-          git submodule update --init --remote --merge twistrs/data/MaxMind-DB
+          git submodule update --init --remote twistrs/data/MaxMind-DB
 
       - name: Run update script
         run: python twistrs/data/update-data-files.py
