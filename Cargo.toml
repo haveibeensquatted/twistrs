@@ -4,5 +4,6 @@ members = [
     "twistrs",
     "examples/twistrs-grpc",
     "examples/twistrs-cli",
-    "examples/twistrs-ws"
+    "examples/twistrs-ws",
+    "examples/phonetic-distance"
 ]
