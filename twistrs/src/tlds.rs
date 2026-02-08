@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6930] = [
+pub const TLDS: [&str; 6929] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -1939,7 +1939,6 @@ pub const TLDS: [&str; 6930] = [
     "goldpoint",
     "golf",
     "gonohe.aomori.jp",
-    "goo",
     "goodyear",
     "goog",
     "google",
