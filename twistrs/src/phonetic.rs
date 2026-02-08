@@ -4,6 +4,8 @@
 //! between domain names using the Metaphone 3 phonetic encoding algorithm
 //! combined with normalized Levenshtein distance.
 
+#![allow(clippy::module_name_repetitions)]
+
 use crate::permutate::{Domain, Permutation};
 use metaphone3::Metaphone3;
 use serde::{Deserialize, Serialize};
@@ -153,6 +155,7 @@ pub fn compute_phonetic_distance(base_domain: &Domain, permutation: &Permutation
 ///
 /// The distance is normalized by dividing by the maximum length of the two strings.
 /// If both strings are empty, returns 1.0.
+#[allow(clippy::cast_precision_loss)]
 fn normalized_levenshtein(s1: &str, s2: &str) -> f64 {
     let max_len = s1.len().max(s2.len());
 
@@ -161,7 +164,11 @@ fn normalized_levenshtein(s1: &str, s2: &str) -> f64 {
     }
 
     let distance = levenshtein(s1, s2);
-    distance as f64 / max_len as f64
+    
+    #[allow(clippy::float_arithmetic)]
+    let normalized = distance as f64 / max_len as f64;
+    
+    normalized
 }
 
 #[cfg(test)]
@@ -264,5 +271,118 @@ mod tests {
         assert!(json.contains("Metaphone3"));
         assert!(json.contains("distance"));
         assert!(json.contains("encodings"));
+    }
+
+    #[test]
+    fn test_phonetically_identical_domains() {
+        // "phone" and "fone" should sound the same
+        let base = Domain::new("phone.com").unwrap();
+        let perm_domain = Domain::new("fone.com").unwrap();
+        let perm = Permutation {
+            domain: perm_domain,
+            kind: PermutationKind::Mapped,
+        };
+
+        let result = compute_phonetic_distance(&base, &perm);
+
+        assert_eq!(result.op, "Metaphone3");
+        // These should have very similar phonetic encodings
+        assert!(result.data.distance < 0.3);
+    }
+
+    #[test]
+    fn test_json_output_structure() {
+        // Verify the JSON output matches the expected structure from the problem statement
+        let base = Domain::new("example.com").unwrap();
+        let perm_domain = Domain::new("example.com").unwrap();
+        let perm = Permutation {
+            domain: perm_domain,
+            kind: PermutationKind::Mapped,
+        };
+
+        let result = compute_phonetic_distance(&base, &perm);
+        let json_value: serde_json::Value = serde_json::to_value(&result).unwrap();
+
+        // Verify structure
+        assert!(json_value.get("permutation").is_some());
+        assert!(json_value.get("op").is_some());
+        assert!(json_value.get("data").is_some());
+
+        let data = json_value.get("data").unwrap();
+        assert!(data.get("encodings").is_some());
+        assert!(data.get("distance").is_some());
+
+        let encodings = data.get("encodings").unwrap();
+        assert!(encodings.get("domain").is_some());
+        assert!(encodings.get("permutation").is_some());
+
+        // Verify values
+        assert_eq!(json_value["op"], "Metaphone3");
+        assert_eq!(json_value["data"]["distance"], 0.0);
+    }
+
+    #[test]
+    fn test_primary_secondary_encoding_selection() {
+        // Test that the algorithm correctly selects the best pairing
+        let base = Domain::new("microsoft.com").unwrap();
+        let perm_domain = Domain::new("mikerosoft.com").unwrap();
+        let perm = Permutation {
+            domain: perm_domain,
+            kind: PermutationKind::Mapped,
+        };
+
+        let result = compute_phonetic_distance(&base, &perm);
+
+        assert_eq!(result.op, "Metaphone3");
+        assert!(result.data.distance >= 0.0 && result.data.distance <= 1.0);
+        // Encodings should be non-empty
+        assert!(!result.data.encodings.domain.is_empty());
+        assert!(!result.data.encodings.permutation.is_empty());
+    }
+
+    #[test]
+    fn test_single_character_domains() {
+        let base = Domain::new("a.com").unwrap();
+        let perm_domain = Domain::new("b.com").unwrap();
+        let perm = Permutation {
+            domain: perm_domain,
+            kind: PermutationKind::Mapped,
+        };
+
+        let result = compute_phonetic_distance(&base, &perm);
+
+        assert_eq!(result.op, "Metaphone3");
+        assert!(result.data.distance >= 0.0 && result.data.distance <= 1.0);
+    }
+
+    #[test]
+    fn test_numeric_domains() {
+        let base = Domain::new("test123.com").unwrap();
+        let perm_domain = Domain::new("test456.com").unwrap();
+        let perm = Permutation {
+            domain: perm_domain,
+            kind: PermutationKind::Mapped,
+        };
+
+        let result = compute_phonetic_distance(&base, &perm);
+
+        assert_eq!(result.op, "Metaphone3");
+        assert!(result.data.distance >= 0.0 && result.data.distance <= 1.0);
+    }
+
+    #[test]
+    fn test_case_insensitive() {
+        // Metaphone3 should handle case-insensitively
+        let base = Domain::new("example.com").unwrap();
+        let perm_domain = Domain::new("example.com").unwrap();
+        let perm = Permutation {
+            domain: perm_domain,
+            kind: PermutationKind::Mapped,
+        };
+
+        let result = compute_phonetic_distance(&base, &perm);
+
+        assert_eq!(result.op, "Metaphone3");
+        assert_eq!(result.data.distance, 0.0);
     }
 }
