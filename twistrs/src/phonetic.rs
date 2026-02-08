@@ -154,13 +154,14 @@ pub fn compute_phonetic_distance(base_domain: &Domain, permutation: &Permutation
 /// - 1.0 means the strings are completely different
 ///
 /// The distance is normalized by dividing by the maximum length of the two strings.
-/// If both strings are empty, returns 1.0.
+/// If both strings are empty, returns 0.0 (empty strings are identical).
 #[allow(clippy::cast_precision_loss)]
 fn normalized_levenshtein(s1: &str, s2: &str) -> f64 {
     let max_len = s1.len().max(s2.len());
 
     if max_len == 0 {
-        return 1.0;
+        // Both strings are empty - they are identical
+        return 0.0;
     }
 
     let distance = levenshtein(s1, s2);
@@ -191,7 +192,7 @@ mod tests {
     #[test]
     fn test_normalized_levenshtein_partial() {
         let distance = normalized_levenshtein("kitten", "sitting");
-        // "kitten" -> "sitting" requires 3 operations: s->k, i->e, g insertion
+        // "kitten" -> "sitting" requires 3 operations: k->s, e->i, insert g
         // distance = 3 / 7 = 0.428...
         assert!((distance - 0.428).abs() < 0.01);
     }
@@ -199,7 +200,8 @@ mod tests {
     #[test]
     fn test_normalized_levenshtein_empty() {
         let distance = normalized_levenshtein("", "");
-        assert_eq!(distance, 1.0);
+        // Empty strings are identical
+        assert_eq!(distance, 0.0);
     }
 
     #[test]
