@@ -2592,6 +2592,67 @@ impl HomoglyphState {
     }
 }
 
+/// Computes the phonetic distance between two domain labels using Metaphone 3.
+///
+/// Only the domain label is compared (TLD and subdomains are ignored).
+/// Returns a normalized distance in [0.0, 1.0] where 0.0 means most similar.
+///
+/// # Example
+/// ```
+/// use twistrs::permutate::{Domain, phonetic_distance};
+///
+/// let base = Domain::new("example.com").unwrap();
+/// let perm = Domain::new("eksample.com").unwrap();
+/// let distance = phonetic_distance(&base, &perm);
+/// assert!(distance < 0.5); // Similar phonetically
+/// ```
+pub fn phonetic_distance(domain1: &Domain, domain2: &Domain) -> f64 {
+    use metaphone3::Metaphone3;
+    use strsim::levenshtein;
+
+    let mut encoder = Metaphone3::new();
+    
+    // Compute encodings for both domain labels
+    let (d1_primary, d1_secondary) = encoder.encode(&domain1.domain);
+    let (d2_primary, d2_secondary) = encoder.encode(&domain2.domain);
+    
+    // Try all valid pairings and find minimum distance
+    let mut best_distance = f64::MAX;
+    
+    let pairings = [
+        (d1_primary.as_str(), d2_primary.as_str()),
+        (d1_primary.as_str(), d2_secondary.as_str()),
+        (d1_secondary.as_str(), d2_primary.as_str()),
+        (d1_secondary.as_str(), d2_secondary.as_str()),
+    ];
+    
+    for (key1, key2) in &pairings {
+        if key1.is_empty() || key2.is_empty() {
+            continue;
+        }
+        
+        let max_len = key1.len().max(key2.len());
+        if max_len == 0 {
+            continue;
+        }
+        
+        let distance = levenshtein(key1, key2);
+        #[allow(clippy::cast_precision_loss)]
+        let normalized = distance as f64 / max_len as f64;
+        
+        if normalized < best_distance {
+            best_distance = normalized;
+        }
+    }
+    
+    // If no valid pairing found, return 1.0 (maximum distance)
+    if best_distance == f64::MAX {
+        1.0
+    } else {
+        best_distance
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::filter::{Permissive, Substring};
@@ -2948,5 +3009,29 @@ mod tests {
             .collect();
 
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn test_phonetic_distance_identical() {
+        let d1 = Domain::new("example.com").unwrap();
+        let d2 = Domain::new("example.com").unwrap();
+        let distance = phonetic_distance(&d1, &d2);
+        assert_eq!(distance, 0.0);
+    }
+
+    #[test]
+    fn test_phonetic_distance_similar() {
+        let d1 = Domain::new("phone.com").unwrap();
+        let d2 = Domain::new("fone.com").unwrap();
+        let distance = phonetic_distance(&d1, &d2);
+        assert_eq!(distance, 0.0); // Phonetically identical
+    }
+
+    #[test]
+    fn test_phonetic_distance_different() {
+        let d1 = Domain::new("google.com").unwrap();
+        let d2 = Domain::new("amazon.com").unwrap();
+        let distance = phonetic_distance(&d1, &d2);
+        assert!(distance > 0.5); // Very different
     }
 }

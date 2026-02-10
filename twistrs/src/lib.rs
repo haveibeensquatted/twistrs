@@ -91,4 +91,5 @@ pub mod tlds;
 
 pub use permutate::{
     Domain, DomainRef, Permutation, PermutationError, PermutationKind, PermutationRef,
+    phonetic_distance,
 };
