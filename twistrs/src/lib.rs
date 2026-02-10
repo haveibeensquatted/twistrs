@@ -87,10 +87,9 @@ pub mod constants;
 pub mod error;
 pub mod filter;
 pub mod permutate;
-pub mod phonetic;
 pub mod tlds;
 
 pub use permutate::{
     Domain, DomainRef, Permutation, PermutationError, PermutationKind, PermutationRef,
+    phonetic_distance,
 };
-pub use phonetic::{PhoneticData, PhoneticEncodings, PhoneticResult, compute_phonetic_distance};
