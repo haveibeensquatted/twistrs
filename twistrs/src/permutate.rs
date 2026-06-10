@@ -1493,11 +1493,11 @@ impl Domain {
 
 fn push_faux_tld_label(buffer: &mut String, tld: &str) {
     let mut parts = tld.split('.');
-    if let Some(part) = parts.next() {
-        buffer.push_str(part);
-        for part in parts {
+    if let Some(first_part) = parts.next() {
+        buffer.push_str(first_part);
+        for next_part in parts {
             buffer.push('-');
-            buffer.push_str(part);
+            buffer.push_str(next_part);
         }
     }
 }
@@ -2608,48 +2608,56 @@ impl HomoglyphState {
 /// ```
 pub fn phonetic_distance(domain1: &Domain, domain2: &Domain) -> f64 {
     use metaphone3::Metaphone3;
-    use strsim::levenshtein;
+
+    if domain1.domain == domain2.domain {
+        return 0.0;
+    }
 
     let mut encoder = Metaphone3::new();
-    
-    // Compute encodings for both domain labels
+
     let (d1_primary, d1_secondary) = encoder.encode(&domain1.domain);
     let (d2_primary, d2_secondary) = encoder.encode(&domain2.domain);
-    
-    // Try all valid pairings and find minimum distance
-    let mut best_distance = f64::MAX;
-    
+
+    let mut best_distance = None;
+
     let pairings = [
         (d1_primary.as_str(), d2_primary.as_str()),
         (d1_primary.as_str(), d2_secondary.as_str()),
         (d1_secondary.as_str(), d2_primary.as_str()),
         (d1_secondary.as_str(), d2_secondary.as_str()),
     ];
-    
+
     for (key1, key2) in &pairings {
         if key1.is_empty() || key2.is_empty() {
             continue;
         }
-        
-        let max_len = key1.len().max(key2.len());
-        if max_len == 0 {
-            continue;
-        }
-        
-        let distance = levenshtein(key1, key2);
-        #[allow(clippy::cast_precision_loss)]
-        let normalized = distance as f64 / max_len as f64;
-        
-        if normalized < best_distance {
-            best_distance = normalized;
-        }
+
+        let normalized = normalized_levenshtein_distance(key1, key2);
+        best_distance = Some(best_distance.map_or(normalized, |best| {
+            if normalized < best {
+                normalized
+            } else {
+                best
+            }
+        }));
     }
-    
-    // If no valid pairing found, return 1.0 (maximum distance)
-    if best_distance == f64::MAX {
-        1.0
-    } else {
-        best_distance
+
+    best_distance
+        .unwrap_or_else(|| normalized_levenshtein_distance(&domain1.domain, &domain2.domain))
+}
+
+fn normalized_levenshtein_distance(left: &str, right: &str) -> f64 {
+    use strsim::levenshtein;
+
+    let max_len = left.chars().count().max(right.chars().count());
+    if max_len == 0 {
+        return 0.0;
+    }
+
+    let distance = levenshtein(left, right);
+    #[allow(clippy::cast_precision_loss, clippy::float_arithmetic)]
+    {
+        distance as f64 / max_len as f64
     }
 }
 
@@ -3033,5 +3041,22 @@ mod tests {
         let d2 = Domain::new("amazon.com").unwrap();
         let distance = phonetic_distance(&d1, &d2);
         assert!(distance > 0.5); // Very different
+    }
+
+    #[test]
+    fn test_phonetic_distance_identical_numeric_label() {
+        let d1 = Domain::new("123.com").unwrap();
+        let d2 = Domain::new("123.com").unwrap();
+        let distance = phonetic_distance(&d1, &d2);
+        assert_eq!(distance, 0.0);
+    }
+
+    #[test]
+    fn test_phonetic_distance_numeric_label_fallback() {
+        let d1 = Domain::new("123.com").unwrap();
+        let d2 = Domain::new("124.com").unwrap();
+        let distance = phonetic_distance(&d1, &d2);
+        assert!(distance > 0.0);
+        assert!(distance < 1.0);
     }
 }

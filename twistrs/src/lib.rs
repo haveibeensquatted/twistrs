@@ -36,7 +36,7 @@
     clippy::checked_conversions,
     clippy::decimal_literal_representation,
     clippy::doc_markdown,
-    clippy::empty_enum,
+    clippy::empty_enums,
     clippy::explicit_into_iter_loop,
     clippy::explicit_iter_loop,
     clippy::expl_impl_clone_on_copy,
@@ -87,9 +87,10 @@ pub mod constants;
 pub mod error;
 pub mod filter;
 pub mod permutate;
+#[allow(clippy::large_const_arrays)]
 pub mod tlds;
 
 pub use permutate::{
-    Domain, DomainRef, Permutation, PermutationError, PermutationKind, PermutationRef,
-    phonetic_distance,
+    phonetic_distance, Domain, DomainRef, Permutation, PermutationError, PermutationKind,
+    PermutationRef,
 };
