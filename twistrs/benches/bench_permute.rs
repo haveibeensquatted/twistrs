@@ -1,53 +1,53 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use twistrs::permutate::Domain;
+use twistrs::{filter::Permissive, permutate::Domain};
 
 fn bitsquatting(domain: &Domain) {
-    domain.bitsquatting().for_each(drop)
+    domain.bitsquatting(&Permissive).for_each(drop)
 }
 
 fn homoglyph(domain: &Domain) {
-    domain.homoglyph().unwrap().for_each(drop)
+    domain.homoglyph(&Permissive).for_each(drop)
 }
 
-fn hyphentation(domain: &Domain) {
-    domain.hyphenation().for_each(drop)
+fn hyphenation(domain: &Domain) {
+    domain.hyphenation(&Permissive).for_each(drop)
 }
 
 fn insertion(domain: &Domain) {
-    domain.insertion().for_each(drop)
+    domain.insertion(&Permissive).for_each(drop)
 }
 
 fn omission(domain: &Domain) {
-    domain.omission().for_each(drop)
+    domain.omission(&Permissive).for_each(drop)
 }
 
 fn repetition(domain: &Domain) {
-    domain.repetition().for_each(drop)
+    domain.repetition(&Permissive).for_each(drop)
 }
 
 fn replacement(domain: &Domain) {
-    domain.replacement().for_each(drop)
+    domain.replacement(&Permissive).for_each(drop)
 }
 
 fn subdomain(domain: &Domain) {
-    domain.subdomain().for_each(drop)
+    domain.subdomain(&Permissive).for_each(drop)
 }
 
 fn transposition(domain: &Domain) {
-    domain.transposition().for_each(drop)
+    domain.transposition(&Permissive).for_each(drop)
 }
 
 fn vowel_swap(domain: &Domain) {
-    domain.vowel_swap().for_each(drop)
+    domain.vowel_swap(&Permissive).for_each(drop)
 }
 
 fn keyword(domain: &Domain) {
-    domain.keyword().for_each(drop)
+    domain.keyword(&Permissive).for_each(drop)
 }
 
 fn tld(domain: &Domain) {
-    domain.tld().for_each(drop)
+    domain.tld(&Permissive).for_each(drop)
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -56,8 +56,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| bitsquatting(&domain))
     });
     c.bench_function("homoglyph example.com", |b| b.iter(|| homoglyph(&domain)));
-    c.bench_function("hyphentation example.com", |b| {
-        b.iter(|| hyphentation(&domain))
+    c.bench_function("hyphenation example.com", |b| {
+        b.iter(|| hyphenation(&domain))
     });
     c.bench_function("insertion example.com", |b| b.iter(|| insertion(&domain)));
     c.bench_function("omission example.com", |b| b.iter(|| omission(&domain)));
