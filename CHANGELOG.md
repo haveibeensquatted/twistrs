@@ -1,12 +1,18 @@
 # CHANGELOG.md
 
-## 1.1.0 (2025-01-17)
+## 1.1.3 (2026-06-10)
+
+# Feat
+
+* Added `phonetic_distance` permutation method
+
+## 1.1.0 (2026-01-17)
 
 # Feat
 
 * Added `faux_tld` permutation method
 
-## 1.0.0 (2025-01-11)
+## 1.0.0 (2026-01-11)
 
 After over five years, we've finally gone about releasing our 1.0 release. This release shapes
 the library into a state that we feels meets all the needs we, and the community, have, while 
