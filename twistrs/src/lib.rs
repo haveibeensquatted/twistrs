@@ -91,6 +91,6 @@ pub mod permutate;
 pub mod tlds;
 
 pub use permutate::{
-    phonetic_distance, Domain, DomainRef, Permutation, PermutationError, PermutationKind,
-    PermutationRef,
+    phonetic_distance, Domain, DomainRef, KeywordTldOptions, Permutation, PermutationError,
+    PermutationKind, PermutationRef,
 };
