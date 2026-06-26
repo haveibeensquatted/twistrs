@@ -92,5 +92,5 @@ pub mod tlds;
 
 pub use permutate::{
     phonetic_distance, Domain, DomainRef, KeywordTldOptions, Permutation, PermutationError,
-    PermutationKind, PermutationRef,
+    PermutationKind, PermutationRef, DEFAULT_KEYWORD_TLD_KEYWORDS, DEFAULT_KEYWORD_TLD_SUFFIXES,
 };
