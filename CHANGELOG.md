@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 1.1.4 (2026-06-26)
+
+# Feat
+
+* Added `keyword_tld` permutation method
+
 ## 1.1.3 (2026-06-10)
 
 # Feat
