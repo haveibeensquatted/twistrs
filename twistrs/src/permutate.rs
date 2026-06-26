@@ -25,6 +25,7 @@ use addr::parser::DomainName;
 use addr::psl::List;
 use itertools::{repeat_n, Itertools};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 // Include further constants such as dictionaries that are
 // generated during compile time.
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
@@ -85,10 +86,70 @@ pub enum PermutationKind {
     VowelShuffle,
     DoubleVowelInsertion,
     Keyword,
+    KeywordTld,
     Tld,
     FauxTld,
     Homoglyph,
     Mapped,
+}
+
+pub const DEFAULT_KEYWORD_TLD_KEYWORDS: [&str; 15] = [
+    "us",
+    "usa",
+    "eu",
+    "uk",
+    "australia",
+    "espana",
+    "store",
+    "shop",
+    "outlet",
+    "sale",
+    "support",
+    "elec",
+    "eustore",
+    "hiring",
+    "hr",
+];
+pub const DEFAULT_KEYWORD_TLD_SUFFIXES: [&str; 3] = ["ph", "us.com", "sa.com"];
+
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub struct KeywordTldOptions {
+    pub keywords: Vec<String>,
+    pub tlds: Vec<String>,
+    pub max_candidates: Option<usize>,
+    pub include_hyphenated: bool,
+    pub include_concatenated: bool,
+}
+
+impl KeywordTldOptions {
+    pub fn new<T, S>(tlds: T) -> Self
+    where
+        T: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self {
+            tlds: tlds.into_iter().map(Into::into).collect(),
+            ..Self::default()
+        }
+    }
+}
+
+impl Default for KeywordTldOptions {
+    fn default() -> Self {
+        Self {
+            keywords: DEFAULT_KEYWORD_TLD_KEYWORDS
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            tlds: DEFAULT_KEYWORD_TLD_SUFFIXES
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            max_candidates: Some(1024),
+            include_hyphenated: true,
+            include_concatenated: true,
+        }
+    }
 }
 
 #[derive(Clone, thiserror::Error, Debug)]
@@ -278,6 +339,7 @@ impl Domain {
             .chain(self.vowel_shuffle(VOWEL_SHUFFLE_CEILING, filter))
             .chain(self.double_vowel_insertion(filter))
             .chain(self.keyword(filter))
+            .chain(self.keyword_tld(&KeywordTldOptions::default(), filter))
             .chain(self.tld(filter))
             .chain(self.faux_tld(filter))
             .chain(self.mapped(filter))
@@ -311,6 +373,7 @@ impl Domain {
         self.visit_vowel_shuffle_with_buf(VOWEL_SHUFFLE_CEILING, filter, buffer, visit);
         self.visit_double_vowel_insertion_with_buf(filter, buffer, visit);
         self.visit_keyword_with_buf(filter, buffer, visit);
+        self.visit_keyword_tld_with_buf(&KeywordTldOptions::default(), filter, buffer, visit);
         self.visit_tld_with_buf(filter, buffer, visit);
         self.visit_faux_tld_with_buf(filter, buffer, visit);
         self.visit_mapped_with_buf(filter, buffer, visit);
@@ -1259,6 +1322,86 @@ impl Domain {
         )
     }
 
+    /// Suffix-aware keyword permutation mode that appends common keywords to the domain under a
+    /// caller-supplied, bounded list of suffixes.
+    ///
+    /// Unlike [`Domain::keyword`], this supports private-registry suffixes such as `us.com` when
+    /// they are explicitly provided in [`KeywordTldOptions`]. It is not included in
+    /// [`Domain::all`].
+    pub fn keyword_tld(
+        &self,
+        options: &KeywordTldOptions,
+        filter: &impl Filter,
+    ) -> std::vec::IntoIter<Permutation> {
+        if options.max_candidates == Some(0) {
+            return Vec::new().into_iter();
+        }
+
+        let suffixes = normalised_keyword_tld_suffixes(&options.tlds);
+        let keywords = normalised_keyword_tld_keywords(&options.keywords);
+        let mut seen = BTreeSet::new();
+        let mut permutations = Vec::new();
+
+        for keyword in keywords {
+            for suffix in &suffixes {
+                if options.include_hyphenated {
+                    let label = format!("{}-{keyword}", self.domain);
+                    push_keyword_tld_permutation(
+                        &label,
+                        suffix,
+                        filter,
+                        &mut seen,
+                        &mut permutations,
+                    );
+                    if options
+                        .max_candidates
+                        .is_some_and(|max| permutations.len() >= max)
+                    {
+                        return permutations.into_iter();
+                    }
+                }
+
+                if options.include_concatenated {
+                    let label = format!("{}{keyword}", self.domain);
+                    push_keyword_tld_permutation(
+                        &label,
+                        suffix,
+                        filter,
+                        &mut seen,
+                        &mut permutations,
+                    );
+                    if options
+                        .max_candidates
+                        .is_some_and(|max| permutations.len() >= max)
+                    {
+                        return permutations.into_iter();
+                    }
+                }
+            }
+        }
+
+        permutations.into_iter()
+    }
+
+    /// Allocation-free equivalent of [`Domain::keyword_tld`].
+    pub fn visit_keyword_tld_with_buf<FilterT, VisitT>(
+        &self,
+        options: &KeywordTldOptions,
+        filter: &FilterT,
+        buffer: &mut String,
+        visit: &mut VisitT,
+    ) where
+        FilterT: FilterRef,
+        VisitT: for<'a> FnMut(PermutationRef<'a>),
+    {
+        let mut state = KeywordTldState::new(options);
+        while state.next_candidate(&self.domain, buffer) {
+            if emit_keyword_tld_ref_candidate(buffer.as_str(), filter, visit) {
+                state.mark_emitted();
+            }
+        }
+    }
+
     /// Allocation-free equivalent of [`Domain::keyword`].
     pub fn visit_keyword_with_buf<FilterT, VisitT>(
         &self,
@@ -1502,6 +1645,140 @@ fn push_faux_tld_label(buffer: &mut String, tld: &str) {
     }
 }
 
+fn normalised_keyword_tld_suffixes(tlds: &[String]) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    let mut suffixes = Vec::new();
+
+    for suffix in tlds {
+        let Some(suffix) = normalise_keyword_tld_suffix(suffix) else {
+            continue;
+        };
+
+        if seen.insert(suffix.clone()) {
+            suffixes.push(suffix);
+        }
+    }
+
+    suffixes
+}
+
+fn normalised_keyword_tld_keywords(keywords: &[String]) -> Vec<String> {
+    if keywords.is_empty() {
+        return KEYWORDS
+            .iter()
+            .map(|keyword| (*keyword).to_string())
+            .collect();
+    }
+
+    let mut seen = BTreeSet::new();
+    let mut normalised = Vec::new();
+
+    for keyword in keywords {
+        let keyword = keyword.to_ascii_lowercase();
+        if !is_valid_domain_label(&keyword) {
+            continue;
+        }
+
+        if seen.insert(keyword.clone()) {
+            normalised.push(keyword);
+        }
+    }
+
+    normalised
+}
+
+fn normalise_keyword_tld_suffix(suffix: &str) -> Option<String> {
+    let suffix = suffix.trim_start_matches('.').to_ascii_lowercase();
+    if suffix.is_empty()
+        || !suffix.split('.').all(is_valid_domain_label)
+        || !has_known_tld_tail(&suffix)
+    {
+        return None;
+    }
+
+    Some(suffix)
+}
+
+fn push_keyword_tld_permutation(
+    label: &str,
+    suffix: &str,
+    filter: &impl Filter,
+    seen: &mut BTreeSet<String>,
+    permutations: &mut Vec<Permutation>,
+) {
+    if !is_valid_domain_label(label) {
+        return;
+    }
+
+    let fqdn = format!("{label}.{suffix}");
+    if fqdn.len() > 253 || !seen.insert(fqdn.clone()) {
+        return;
+    }
+
+    let domain = Domain {
+        fqdn,
+        tld: suffix.to_string(),
+        domain: label.to_string(),
+    };
+
+    if filter.matches(&domain) {
+        permutations.push(Permutation {
+            domain,
+            kind: PermutationKind::KeywordTld,
+        });
+    }
+}
+
+fn emit_keyword_tld_ref_candidate<FilterT, VisitT>(
+    candidate: &str,
+    filter: &FilterT,
+    visit: &mut VisitT,
+) -> bool
+where
+    FilterT: FilterRef,
+    VisitT: for<'a> FnMut(PermutationRef<'a>),
+{
+    let Some((label, tld)) = candidate.split_once('.') else {
+        return false;
+    };
+
+    let domain = DomainRef {
+        fqdn: candidate,
+        tld,
+        domain: label,
+    };
+
+    if filter.matches(domain) {
+        visit(PermutationRef {
+            domain,
+            kind: PermutationKind::KeywordTld,
+        });
+        return true;
+    }
+
+    false
+}
+
+fn has_known_tld_tail(suffix: &str) -> bool {
+    let parts = suffix.split('.').collect_vec();
+    for idx in 0..parts.len() {
+        let public_suffix = parts[idx..].join(".");
+        if TLDS.binary_search(&public_suffix.as_str()).is_ok() {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn is_valid_domain_label(label: &str) -> bool {
+    !label.is_empty()
+        && label.len() <= 63
+        && !label.starts_with('-')
+        && !label.ends_with('-')
+        && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+}
+
 /// A pull-based permutation cursor that yields borrowed [`PermutationRef`] values.
 ///
 /// This is the streaming counterpart to the visitor-based APIs (e.g. [`Domain::visit_all`]).
@@ -1547,7 +1824,7 @@ where
     pub fn advance(&mut self) -> bool {
         self.current = None;
 
-        loop {
+        'advance: loop {
             let kind = match &mut self.stage {
                 AllPermutationsStage::Addition { idx } => {
                     if *idx >= ASCII_LOWER.len() {
@@ -1709,11 +1986,45 @@ where
                         &self.domain.tld,
                         &mut self.buffer,
                     ) {
-                        self.stage = AllPermutationsStage::Tld { idx: 0 };
+                        self.stage = AllPermutationsStage::KeywordTld(KeywordTldState::new(
+                            &KeywordTldOptions::default(),
+                        ));
                         continue;
                     }
                     PermutationKind::Keyword
                 }
+                AllPermutationsStage::KeywordTld(state) => loop {
+                    if !state.next_candidate(&self.domain.domain, &mut self.buffer) {
+                        self.stage = AllPermutationsStage::Tld { idx: 0 };
+                        continue 'advance;
+                    }
+
+                    let candidate = self.buffer.as_str();
+                    let Some((label, tld)) = candidate.split_once('.') else {
+                        continue;
+                    };
+
+                    let domain = DomainRef {
+                        fqdn: candidate,
+                        tld,
+                        domain: label,
+                    };
+                    if !self.filter.matches(domain) {
+                        continue;
+                    }
+
+                    let tld_start = label.len() + 1;
+                    self.current = Some(CurrentPermutation {
+                        kind: PermutationKind::KeywordTld,
+                        domain_start: 0,
+                        domain_len: label.len(),
+                        tld_start,
+                        tld_len: tld.len(),
+                    });
+                    state.mark_emitted();
+
+                    return true;
+                },
                 AllPermutationsStage::Tld { idx } => {
                     if *idx >= TLDS.len() {
                         self.stage = AllPermutationsStage::FauxTld {
@@ -1834,6 +2145,7 @@ enum AllPermutationsStage {
     VowelShuffle(VowelShuffleState),
     DoubleVowelInsertion(DoubleVowelInsertionState),
     Keyword(KeywordState),
+    KeywordTld(KeywordTldState),
     Tld { idx: usize },
     FauxTld { idx: usize, with_hyphen: bool },
     Mapped(MappedState),
@@ -2467,6 +2779,98 @@ impl KeywordState {
     }
 }
 
+struct KeywordTldState {
+    keywords: Vec<String>,
+    suffixes: Vec<String>,
+    max_candidates: Option<usize>,
+    include_hyphenated: bool,
+    include_concatenated: bool,
+    keyword_idx: usize,
+    suffix_idx: usize,
+    variant_idx: u8,
+    emitted: usize,
+}
+
+impl KeywordTldState {
+    fn new(options: &KeywordTldOptions) -> Self {
+        Self {
+            keywords: normalised_keyword_tld_keywords(&options.keywords),
+            suffixes: normalised_keyword_tld_suffixes(&options.tlds),
+            max_candidates: options.max_candidates,
+            include_hyphenated: options.include_hyphenated,
+            include_concatenated: options.include_concatenated,
+            keyword_idx: 0,
+            suffix_idx: 0,
+            variant_idx: 0,
+            emitted: 0,
+        }
+    }
+
+    fn mark_emitted(&mut self) {
+        self.emitted += 1;
+    }
+
+    fn next_candidate(&mut self, label: &str, buffer: &mut String) -> bool {
+        if self.max_candidates.is_some_and(|max| self.emitted >= max) {
+            return false;
+        }
+
+        loop {
+            if self.keyword_idx >= self.keywords.len() || self.suffixes.is_empty() {
+                return false;
+            }
+
+            if self.suffix_idx >= self.suffixes.len() {
+                self.suffix_idx = 0;
+                self.keyword_idx += 1;
+                self.variant_idx = 0;
+                continue;
+            }
+
+            if self.variant_idx == 0 && !self.include_hyphenated {
+                self.variant_idx = 1;
+                continue;
+            }
+
+            if self.variant_idx == 1 && !self.include_concatenated {
+                self.variant_idx = 0;
+                self.suffix_idx += 1;
+                continue;
+            }
+
+            let keyword = &self.keywords[self.keyword_idx];
+            let suffix = &self.suffixes[self.suffix_idx];
+            let hyphenated = self.variant_idx == 0;
+
+            self.variant_idx += 1;
+            if self.variant_idx >= 2 {
+                self.variant_idx = 0;
+                self.suffix_idx += 1;
+            }
+
+            buffer.clear();
+            buffer.push_str(label);
+            if hyphenated {
+                buffer.push('-');
+            }
+            buffer.push_str(keyword);
+
+            if !is_valid_domain_label(buffer.as_str()) {
+                continue;
+            }
+
+            buffer.push('.');
+            buffer.push_str(suffix);
+
+            if buffer.len() > 253 {
+                continue;
+            }
+
+            return true;
+        }
+    }
+}
+
 struct MappedState {
     entries: phf::map::Entries<'static, &'static str, &'static [&'static str]>,
     active_key: &'static str,
@@ -2673,6 +3077,130 @@ mod tests {
         let permutations: Vec<_> = d.all(&Permissive).collect();
 
         assert!(!permutations.is_empty());
+    }
+
+    #[test]
+    fn test_keyword_mode_includes_brand_monitoring_terms() {
+        let domain = Domain::new("sample.com").unwrap();
+        let expected = [
+            Domain::new("sampleusa.com").unwrap().fqdn,
+            Domain::new("sample-usa.com").unwrap().fqdn,
+            Domain::new("sampleeustore.com").unwrap().fqdn,
+            Domain::new("sample-eustore.com").unwrap().fqdn,
+            Domain::new("samplestore.com").unwrap().fqdn,
+            Domain::new("sample-store.com").unwrap().fqdn,
+            Domain::new("sampleelec.com").unwrap().fqdn,
+            Domain::new("sample-elec.com").unwrap().fqdn,
+            Domain::new("sampleunitedstates.com").unwrap().fqdn,
+            Domain::new("sample-unitedstates.com").unwrap().fqdn,
+            Domain::new("samplecotedivoire.com").unwrap().fqdn,
+            Domain::new("sample-cotedivoire.com").unwrap().fqdn,
+            Domain::new("samplesouthkorea.com").unwrap().fqdn,
+            Domain::new("sample-southkorea.com").unwrap().fqdn,
+        ];
+
+        let results: Vec<Permutation> = domain
+            .keyword(&Permissive)
+            .filter(|p| expected.contains(&p.domain.fqdn))
+            .collect();
+
+        assert_eq!(results.len(), expected.len());
+    }
+
+    #[test]
+    fn test_keyword_tld_mode_generates_suffix_aware_brand_monitoring_terms() {
+        let domain = Domain::new("sample.com").unwrap();
+        let options = KeywordTldOptions {
+            keywords: vec![
+                "usa".to_string(),
+                "australia".to_string(),
+                "store".to_string(),
+                "eustore".to_string(),
+            ],
+            tlds: vec![
+                "us.com".to_string(),
+                "com".to_string(),
+                "ph".to_string(),
+                "sa.com".to_string(),
+            ],
+            max_candidates: None,
+            include_hyphenated: true,
+            include_concatenated: true,
+        };
+
+        let permutations = domain.keyword_tld(&options, &Permissive).collect_vec();
+        let fqdns = permutations
+            .iter()
+            .map(|permutation| permutation.domain.fqdn.as_str())
+            .collect_vec();
+
+        assert!(fqdns.contains(&"sampleusa.us.com"));
+        assert!(fqdns.contains(&"sample-usa.us.com"));
+        assert!(fqdns.contains(&"sampleaustralia.com"));
+        assert!(fqdns.contains(&"sample-store.ph"));
+        assert!(fqdns.contains(&"sampleeustore.sa.com"));
+
+        let private_suffix = permutations
+            .iter()
+            .find(|permutation| permutation.domain.fqdn == "sampleusa.us.com")
+            .unwrap();
+        assert_eq!(private_suffix.domain.domain, "sampleusa");
+        assert_eq!(private_suffix.domain.tld, "us.com");
+        assert_eq!(private_suffix.kind, PermutationKind::KeywordTld);
+    }
+
+    #[test]
+    fn test_keyword_tld_mode_honors_caps_and_deduplicates_suffixes() {
+        let domain = Domain::new("sample.com").unwrap();
+        let options = KeywordTldOptions {
+            keywords: Vec::new(),
+            tlds: vec!["com".to_string(), ".COM".to_string()],
+            max_candidates: Some(4),
+            include_hyphenated: true,
+            include_concatenated: true,
+        };
+
+        let fqdns = domain
+            .keyword_tld(&options, &Permissive)
+            .map(|permutation| permutation.domain.fqdn)
+            .collect_vec();
+
+        assert_eq!(
+            fqdns,
+            vec![
+                "sample-2fa.com".to_string(),
+                "sample2fa.com".to_string(),
+                "sample-360.com".to_string(),
+                "sample360.com".to_string(),
+            ]
+        );
+
+        let zero_options = KeywordTldOptions {
+            max_candidates: Some(0),
+            ..options
+        };
+        assert!(domain
+            .keyword_tld(&zero_options, &Permissive)
+            .next()
+            .is_none());
+    }
+
+    #[test]
+    fn test_keyword_tld_mode_is_in_all_with_default_options() {
+        let domain = Domain::new("sample.com").unwrap();
+        let all = domain.all(&Permissive).collect_vec();
+        let fqdns = all
+            .iter()
+            .map(|permutation| permutation.domain.fqdn.as_str())
+            .collect_vec();
+
+        assert!(all
+            .iter()
+            .any(|permutation| permutation.kind == PermutationKind::KeywordTld));
+        assert!(fqdns.contains(&"sampleusa.us.com"));
+        assert!(fqdns.contains(&"sample-usa.us.com"));
+        assert!(fqdns.contains(&"sample-store.ph"));
+        assert!(fqdns.contains(&"sampleeustore.sa.com"));
     }
 
     #[test]
