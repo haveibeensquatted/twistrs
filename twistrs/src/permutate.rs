@@ -25,7 +25,7 @@ use addr::parser::DomainName;
 use addr::psl::List;
 use itertools::{repeat_n, Itertools};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 // Include further constants such as dictionaries that are
 // generated during compile time.
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
@@ -56,6 +56,35 @@ pub struct DomainRef<'a> {
 
     /// The remainder of the domain (e.g. `google`).
     pub domain: &'a str,
+}
+
+/// Computed metadata for a parsed domain.
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
+pub struct DomainMetadata {
+    /// Shannon entropy for the root domain label.
+    pub shannon_entropy: f64,
+
+    /// Shannon entropy normalized against the maximum possible entropy for the label length.
+    pub shannon_entropy_normalized: f64,
+
+    /// Number of characters in the root domain label.
+    pub char_count: usize,
+
+    /// Number of unique characters in the root domain label.
+    pub unique_char_count: usize,
+
+    /// Number of ASCII digits in the root domain label.
+    pub digit_count: usize,
+
+    /// Number of hyphen characters in the root domain label.
+    pub hyphen_count: usize,
+
+    /// Length of the longest repeated-character run in the root domain label.
+    pub longest_repeated_char_run: usize,
+
+    /// Whether the root domain label starts with the ASCII punycode prefix `xn--`,
+    /// ignoring ASCII case.
+    pub is_punycode: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -232,6 +261,18 @@ impl<'a> DomainRef<'a> {
 
         Ok(Self { fqdn, tld, domain })
     }
+
+    /// Computes metadata for the root domain label.
+    pub fn metadata(&self) -> DomainMetadata {
+        domain_metadata(self.domain)
+    }
+
+    /// Computes Shannon entropy for the root domain label.
+    ///
+    /// This scores `google` for `google.com`, excluding the TLD and subdomains.
+    pub fn shannon_entropy(&self) -> f64 {
+        self.metadata().shannon_entropy
+    }
 }
 
 impl Domain {
@@ -315,6 +356,18 @@ impl Domain {
                 })?
                 .to_string(),
         })
+    }
+
+    /// Computes metadata for the root domain label.
+    pub fn metadata(&self) -> DomainMetadata {
+        domain_metadata(&self.domain)
+    }
+
+    /// Computes Shannon entropy for the root domain label.
+    ///
+    /// This scores `google` for `google.com`, excluding the TLD and subdomains.
+    pub fn shannon_entropy(&self) -> f64 {
+        self.metadata().shannon_entropy
     }
 
     /// Generate any and all possible domain permutations for a given `Domain`.
@@ -1649,8 +1702,8 @@ fn normalised_keyword_tld_suffixes(tlds: &[String]) -> Vec<String> {
     let mut seen = BTreeSet::new();
     let mut suffixes = Vec::new();
 
-    for suffix in tlds {
-        let Some(suffix) = normalise_keyword_tld_suffix(suffix) else {
+    for raw_suffix in tlds {
+        let Some(suffix) = normalise_keyword_tld_suffix(raw_suffix) else {
             continue;
         };
 
@@ -1673,8 +1726,8 @@ fn normalised_keyword_tld_keywords(keywords: &[String]) -> Vec<String> {
     let mut seen = BTreeSet::new();
     let mut normalised = Vec::new();
 
-    for keyword in keywords {
-        let keyword = keyword.to_ascii_lowercase();
+    for raw_keyword in keywords {
+        let keyword = raw_keyword.to_ascii_lowercase();
         if !is_valid_domain_label(&keyword) {
             continue;
         }
@@ -1687,8 +1740,8 @@ fn normalised_keyword_tld_keywords(keywords: &[String]) -> Vec<String> {
     normalised
 }
 
-fn normalise_keyword_tld_suffix(suffix: &str) -> Option<String> {
-    let suffix = suffix.trim_start_matches('.').to_ascii_lowercase();
+fn normalise_keyword_tld_suffix(raw_suffix: &str) -> Option<String> {
+    let suffix = raw_suffix.trim_start_matches('.').to_ascii_lowercase();
     if suffix.is_empty()
         || !suffix.split('.').all(is_valid_domain_label)
         || !has_known_tld_tail(&suffix)
@@ -2996,6 +3049,95 @@ impl HomoglyphState {
     }
 }
 
+fn domain_metadata(label: &str) -> DomainMetadata {
+    let shannon_entropy = shannon_entropy(label);
+    let char_count = label.chars().count();
+
+    DomainMetadata {
+        shannon_entropy,
+        shannon_entropy_normalized: normalize_shannon_entropy(shannon_entropy, char_count),
+        char_count,
+        unique_char_count: label.chars().unique().count(),
+        digit_count: label.chars().filter(char::is_ascii_digit).count(),
+        hyphen_count: label.chars().filter(|c| *c == '-').count(),
+        longest_repeated_char_run: longest_repeated_char_run(label),
+        is_punycode: label
+            .as_bytes()
+            .get(..4)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"xn--")),
+    }
+}
+
+fn normalize_shannon_entropy(shannon_entropy: f64, char_count: usize) -> f64 {
+    if char_count <= 1 {
+        return 0.0;
+    }
+
+    #[allow(clippy::cast_precision_loss, clippy::float_arithmetic)]
+    {
+        shannon_entropy / (char_count as f64).log2()
+    }
+}
+
+fn longest_repeated_char_run(input: &str) -> usize {
+    let mut longest = 0_usize;
+    let mut current = 0_usize;
+    let mut previous = None;
+
+    for c in input.chars() {
+        if previous == Some(c) {
+            current += 1;
+        } else {
+            current = 1;
+            previous = Some(c);
+        }
+
+        if current > longest {
+            longest = current;
+        }
+    }
+
+    longest
+}
+
+/// Computes Shannon entropy for a string.
+///
+/// The score is deterministic and based on Rust `char` frequencies, not bytes.
+/// Domain callers should prefer [`Domain::metadata`] or [`DomainRef::metadata`]
+/// to score the root domain label.
+///
+/// # Example
+/// ```
+/// use twistrs::permutate::{Domain, shannon_entropy};
+///
+/// let domain = Domain::new("google.com").unwrap();
+/// let metadata = domain.metadata();
+///
+/// assert_eq!(metadata.shannon_entropy, shannon_entropy("google"));
+/// assert!(shannon_entropy("xj4kq9z") > metadata.shannon_entropy);
+/// ```
+pub fn shannon_entropy(input: &str) -> f64 {
+    let total_chars = input.chars().count();
+    if total_chars == 0 {
+        return 0.0;
+    }
+
+    let mut frequencies = BTreeMap::new();
+    for c in input.chars() {
+        let frequency = frequencies.entry(c).or_insert(0_usize);
+        *frequency += 1;
+    }
+
+    #[allow(clippy::cast_precision_loss, clippy::float_arithmetic)]
+    {
+        let total = total_chars as f64;
+        frequencies.values().fold(0.0, |entropy, frequency| {
+            let probability = *frequency as f64 / total;
+            entropy - probability * probability.log2()
+        })
+    }
+}
+
 /// Computes the phonetic distance between two domain labels using Metaphone 3.
 ///
 /// Only the domain label is compared (TLD and subdomains are ignored).
@@ -3070,6 +3212,16 @@ mod tests {
     use crate::filter::{Permissive, Substring};
 
     use super::*;
+
+    fn assert_approx_eq(actual: f64, expected: f64) {
+        #[allow(clippy::float_arithmetic)]
+        {
+            assert!(
+                (actual - expected).abs() < 0.000_000_000_001,
+                "actual {actual} did not match expected {expected}"
+            );
+        }
+    }
 
     #[test]
     fn test_all_mode() {
@@ -3545,6 +3697,65 @@ mod tests {
             .collect();
 
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn test_shannon_entropy_exact_values() {
+        assert_eq!(shannon_entropy(""), 0.0);
+        assert_eq!(shannon_entropy("aaaa"), 0.0);
+        assert_eq!(shannon_entropy("ab"), 1.0);
+        assert_eq!(shannon_entropy("aabb"), 1.0);
+        assert_eq!(shannon_entropy("abcd"), 2.0);
+    }
+
+    #[test]
+    fn test_shannon_entropy_realistic_labels() {
+        assert_approx_eq(shannon_entropy("google"), 1.918_295_834_054_489_6);
+        assert_approx_eq(shannon_entropy("xj4kq9z"), 2.807_354_922_057_604);
+    }
+
+    #[test]
+    fn test_domain_shannon_entropy_scores_root_label() {
+        let domain = Domain::new("www.google.com").unwrap();
+        let domain_ref = DomainRef::new("www.google.com").unwrap();
+        let expected = shannon_entropy("google");
+
+        assert_eq!(domain.metadata().shannon_entropy, expected);
+        assert_eq!(domain_ref.metadata().shannon_entropy, expected);
+        assert_eq!(domain.shannon_entropy(), expected);
+        assert_eq!(domain.shannon_entropy(), domain.metadata().shannon_entropy);
+        assert_eq!(domain_ref.shannon_entropy(), expected);
+    }
+
+    #[test]
+    fn test_domain_metadata_features() {
+        let google = domain_metadata("google");
+        assert_eq!(google.char_count, 6);
+        assert_eq!(google.unique_char_count, 4);
+        assert_eq!(google.digit_count, 0);
+        assert_eq!(google.hyphen_count, 0);
+        assert_eq!(google.longest_repeated_char_run, 2);
+        assert!(!google.is_punycode);
+        assert_approx_eq(google.shannon_entropy, 1.918_295_834_054_489_6);
+
+        #[allow(clippy::float_arithmetic)]
+        {
+            assert_approx_eq(
+                google.shannon_entropy_normalized,
+                1.918_295_834_054_489_6 / 6_f64.log2(),
+            );
+        }
+
+        let generated = domain_metadata("xj4kq9z");
+        assert_eq!(generated.char_count, 7);
+        assert_eq!(generated.unique_char_count, 7);
+        assert_eq!(generated.digit_count, 2);
+        assert!(generated.shannon_entropy > google.shannon_entropy);
+
+        assert_eq!(domain_metadata("gooooogle").longest_repeated_char_run, 5);
+        assert_eq!(domain_metadata("foo-bar").hyphen_count, 1);
+        assert!(domain_metadata("xn--example").is_punycode);
+        assert!(domain_metadata("XN--example").is_punycode);
     }
 
     #[test]
