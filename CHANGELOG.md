@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 1.2.0 (2026-06-28)
+
+# Feat
+
+* Added root-label domain metadata, including Shannon entropy and related label features
+
 ## 1.1.4 (2026-06-26)
 
 # Feat
