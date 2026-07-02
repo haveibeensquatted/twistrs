@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6934] = [
+pub const TLDS: [&str; 6933] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -148,6 +148,7 @@ pub const TLDS: [&str; 6934] = [
     "ah.no",
     "ai",
     "ai.bd",
+    "ai.id",
     "ai.in",
     "ai.jo",
     "ai.kr",
@@ -790,7 +791,6 @@ pub const TLDS: [&str; 6934] = [
     "cc.ms.us",
     "cc.mt.us",
     "cc.nc.us",
-    "cc.nd.us",
     "cc.ne.us",
     "cc.nh.us",
     "cc.nj.us",
@@ -3325,7 +3325,6 @@ pub const TLDS: [&str; 6934] = [
     "lib.mo.us",
     "lib.mt.us",
     "lib.nc.us",
-    "lib.nd.us",
     "lib.ne.us",
     "lib.nh.us",
     "lib.nj.us",
