@@ -1,5 +1,5 @@
 // This file is auto-generated. Do not edit manually.
-pub const TLDS: [&str; 6948] = [
+pub const TLDS: [&str; 6949] = [
     "0.bg",
     "1.bg",
     "2.bg",
@@ -6453,6 +6453,7 @@ pub const TLDS: [&str; 6948] = [
     "wazuka.kyoto.jp",
     "weather",
     "weatherchannel",
+    "web",
     "web.bo",
     "web.do",
     "web.gu",
