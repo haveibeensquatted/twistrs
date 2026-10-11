@@ -12,16 +12,20 @@ accounts
 acct
 activate
 adm
+admin
 adminpanel
 admissions
 admit
+ads
 advertising
 adviser
 af
 afghanistan
 africa
+ai
 aid
 aidoffice
+airdrop
 al
 alandislands
 albania
@@ -50,6 +54,7 @@ applynow
 approval
 approve
 approved
+apps
 arcade
 argentina
 armenia
@@ -99,6 +104,7 @@ blackfriday
 bolivia
 boliviaplurinationalstateof
 bonairesinteustatiusandsaba
+bonus
 bosniaandherzegovina
 botswana
 bouvetisland
@@ -182,6 +188,7 @@ confirm
 confirmation
 congo
 congothedemocraticrepublicofthe
+connect
 connectnow
 console
 contact
@@ -230,6 +237,8 @@ deposit
 destination
 details
 dev
+device
+devices
 directions
 directory
 disbursement
@@ -306,6 +315,7 @@ fiji
 files
 finance
 financialaid
+find
 findastore
 finland
 fintech
@@ -334,6 +344,7 @@ gambia
 gateway
 georgia
 germany
+get
 ghana
 gibraltar
 gift
@@ -344,6 +355,8 @@ giftregistry
 giftshop
 global
 gms
+go
+gpt
 grad
 gradschool
 graduate
@@ -369,6 +382,7 @@ grantsreview
 greece
 greenland
 grenada
+group
 guadeloupe
 guam
 guatemala
@@ -398,6 +412,7 @@ honours
 host
 hours
 howto
+hq
 hr
 http2
 hub
@@ -466,9 +481,11 @@ liberia
 libya
 liechtenstein
 lithuania
+locate
 login
 logon
 loi
+lost
 loyalty
 luxembourg
 macao
@@ -481,6 +498,8 @@ mali
 mall
 malta
 manager
+map
+maps
 market
 marketplace
 marshallislands
@@ -637,6 +656,7 @@ privacy
 private
 prize
 prizes
+pro
 product
 products
 program
@@ -753,6 +773,7 @@ senegal
 serbia
 service
 servicedesk
+services
 session
 settings
 setupnow
@@ -765,8 +786,10 @@ shop
 sierraleone
 signin
 signon
+signup
 singapore
 sintmaartendutchpart
+site
 slovakia
 slovenia
 solomonislands
@@ -793,6 +816,8 @@ taiwanprovinceofchina
 tajikistan
 tanzania
 tanzaniaunitedrepublicof
+team
+tech
 thailand
 timorleste
 togo
