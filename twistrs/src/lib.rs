@@ -91,7 +91,7 @@ pub mod permutate;
 pub mod tlds;
 
 pub use permutate::{
-    phonetic_distance, shannon_entropy, Domain, DomainMetadata, DomainRef, KeywordTldOptions,
-    Permutation, PermutationError, PermutationKind, PermutationRef, DEFAULT_KEYWORD_TLD_KEYWORDS,
-    DEFAULT_KEYWORD_TLD_SUFFIXES,
+    keywords, phonetic_distance, shannon_entropy, Domain, DomainMetadata, DomainRef,
+    KeywordTldOptions, Permutation, PermutationError, PermutationKind, PermutationRef,
+    DEFAULT_KEYWORD_TLD_KEYWORDS, DEFAULT_KEYWORD_TLD_SUFFIXES,
 };
