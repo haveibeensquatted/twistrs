@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 1.2.2 (2026-10-12)
+
+# Fix
+
+* Improve keyword permutations
+
 ## 1.2.1 (2026-10-12)
 
 # Misc
