@@ -744,7 +744,8 @@ impl Domain {
 
     /// Permutation method that inserts specific characters that are close to
     /// any character in the domain depending on the keyboard (e.g. `Q` next
-    /// to `W` in qwerty keyboard layout.
+    /// to `W` in qwerty keyboard layout), immediately before and after that
+    /// character (e.g. `example.com` -> `exqample.com`, `exaqmple.com`).
     pub fn insertion<'a>(
         &'a self,
         filter: &'a impl Filter,
@@ -752,25 +753,27 @@ impl Domain {
         Self::permutation(
             move || {
                 self.fqdn
-                    .chars()
+                    .char_indices()
                     .skip(1) // We don't want to insert at the beginning of the domain...
                     .take(self.fqdn.len() - 2) // ...or at the end of the domain.
-                    .enumerate()
-                    .flat_map(move |(i, c)| {
-                        KEYBOARD_LAYOUTS.iter().flat_map(move |layout| {
-                            layout
-                                .get(&c) // Option<&[char]>
-                                .into_iter()
-                                .map(move |keyboard_chars| {
-                                    keyboard_chars.chars().map(move |keyboard_char| {
-                                        let mut permutation = self.fqdn.to_string();
-                                        permutation.insert(i, keyboard_char);
-                                        permutation.to_string()
+                    .flat_map(move |(idx, c)| {
+                        let next = idx + c.len_utf8();
+                        KEYBOARD_LAYOUTS
+                            .iter()
+                            .filter_map(move |layout| layout.get(&c))
+                            .flat_map(move |keyboard_chars| {
+                                keyboard_chars.chars().flat_map(move |keyboard_char| {
+                                    [idx, next].map(|at| {
+                                        format!(
+                                            "{}{}{}",
+                                            &self.fqdn[..at],
+                                            keyboard_char,
+                                            &self.fqdn[at..]
+                                        )
                                     })
                                 })
-                        })
+                            })
                     })
-                    .flatten()
             },
             PermutationKind::Insertion,
             filter,
@@ -790,28 +793,26 @@ impl Domain {
         let fqdn = self.fqdn.as_str();
         let len = fqdn.len();
 
-        // Mirror the current iterator implementation, including its indexing semantics.
-        for (i, c) in fqdn.chars().skip(1).take(len.saturating_sub(2)).enumerate() {
+        for (idx, c) in fqdn.char_indices().skip(1).take(len.saturating_sub(2)) {
+            let next = idx + c.len_utf8();
             for layout in KEYBOARD_LAYOUTS.iter() {
                 let Some(keyboard_chars) = layout.get(&c) else {
                     continue;
                 };
 
                 for keyboard_char in keyboard_chars.chars() {
-                    if !fqdn.is_char_boundary(i) {
-                        continue;
+                    for at in [idx, next] {
+                        buffer.clear();
+                        buffer.push_str(&fqdn[..at]);
+                        buffer.push(keyboard_char);
+                        buffer.push_str(&fqdn[at..]);
+                        Self::emit_ref_candidate(
+                            buffer.as_str(),
+                            PermutationKind::Insertion,
+                            filter,
+                            visit,
+                        );
                     }
-
-                    buffer.clear();
-                    buffer.push_str(&fqdn[..i]);
-                    buffer.push(keyboard_char);
-                    buffer.push_str(&fqdn[i..]);
-                    Self::emit_ref_candidate(
-                        buffer.as_str(),
-                        PermutationKind::Insertion,
-                        filter,
-                        visit,
-                    );
                 }
             }
         }
@@ -911,25 +912,25 @@ impl Domain {
         Self::permutation(
             move || {
                 self.fqdn
-                    .chars()
-                    .skip(1) // We don't want to insert at the beginning of the domain...
-                    .take(self.fqdn.len() - 2) // ...or at the end of the domain.
-                    .enumerate()
-                    .flat_map(move |(i, c)| {
-                        KEYBOARD_LAYOUTS.iter().filter_map(move |layout| {
-                            layout.get(&c).map(move |keyboard_chars| {
+                    .char_indices()
+                    .skip(1) // We don't want to replace the first character of the domain...
+                    .take(self.fqdn.len() - 2) // ...or the last.
+                    .flat_map(move |(idx, c)| {
+                        let next = idx + c.len_utf8();
+                        KEYBOARD_LAYOUTS
+                            .iter()
+                            .filter_map(move |layout| layout.get(&c))
+                            .flat_map(move |keyboard_chars| {
                                 keyboard_chars.chars().map(move |keyboard_char| {
                                     format!(
                                         "{}{}{}",
-                                        &self.fqdn[..i],
+                                        &self.fqdn[..idx],
                                         keyboard_char,
-                                        &self.fqdn[i + 1..]
+                                        &self.fqdn[next..]
                                     )
                                 })
                             })
-                        })
                     })
-                    .flatten()
             },
             PermutationKind::Replacement,
             filter,
@@ -949,23 +950,18 @@ impl Domain {
         let fqdn = self.fqdn.as_str();
         let len = fqdn.len();
 
-        for (i, c) in fqdn.chars().skip(1).take(len.saturating_sub(2)).enumerate() {
+        for (idx, c) in fqdn.char_indices().skip(1).take(len.saturating_sub(2)) {
+            let next = idx + c.len_utf8();
             for layout in KEYBOARD_LAYOUTS.iter() {
                 let Some(keyboard_chars) = layout.get(&c) else {
                     continue;
                 };
 
                 for keyboard_char in keyboard_chars.chars() {
-                    if !fqdn.is_char_boundary(i) {
-                        continue;
-                    }
-
-                    // Mirror the current iterator implementation, including its indexing semantics.
                     buffer.clear();
-                    buffer.push_str(&fqdn[..i]);
+                    buffer.push_str(&fqdn[..idx]);
                     buffer.push(keyboard_char);
-                    let replace_end = (i + 1).min(fqdn.len());
-                    buffer.push_str(&fqdn[replace_end..]);
+                    buffer.push_str(&fqdn[next..]);
                     Self::emit_ref_candidate(
                         buffer.as_str(),
                         PermutationKind::Replacement,
@@ -2294,10 +2290,14 @@ struct InsertionState {
     outer_yielded: usize,
     outer_limit: usize,
     current_char: Option<char>,
+    /// Byte offset of `current_char`.
     current_i: usize,
     layout_index: usize,
     keyboard_chars: Option<&'static str>,
     keyboard_char_pos: usize,
+    /// A keyboard character inserted before `current_char`, still to be
+    /// inserted after it.
+    pending_after: Option<char>,
 }
 
 impl InsertionState {
@@ -2312,28 +2312,42 @@ impl InsertionState {
             layout_index: 0,
             keyboard_chars: None,
             keyboard_char_pos: 0,
+            pending_after: None,
         }
     }
 
+    /// Byte offset and character of the next character to mutate, advancing
+    /// past it, or `None` when every character has been visited.
+    fn advance(&mut self, fqdn: &str) -> Option<(usize, char)> {
+        if self.outer_yielded >= self.outer_limit || self.outer_byte_pos >= fqdn.len() {
+            return None;
+        }
+        let c = fqdn[self.outer_byte_pos..].chars().next()?;
+        let idx = self.outer_byte_pos;
+        self.outer_yielded += 1;
+        self.outer_byte_pos += c.len_utf8();
+        self.current_char = Some(c);
+        self.current_i = idx;
+        self.layout_index = 0;
+        self.keyboard_chars = None;
+        self.keyboard_char_pos = 0;
+        Some((idx, c))
+    }
+
     fn next_candidate(&mut self, fqdn: &str, buffer: &mut String) -> bool {
+        if let Some(keyboard_char) = self.pending_after.take() {
+            let c = self.current_char.expect("current char must be set");
+            let next = self.current_i + c.len_utf8();
+            buffer.clear();
+            buffer.push_str(&fqdn[..next]);
+            buffer.push(keyboard_char);
+            buffer.push_str(&fqdn[next..]);
+            return true;
+        }
+
         loop {
-            if self.current_char.is_none() {
-                if self.outer_yielded >= self.outer_limit || self.outer_byte_pos >= fqdn.len() {
-                    return false;
-                }
-
-                let Some(c) = fqdn[self.outer_byte_pos..].chars().next() else {
-                    return false;
-                };
-
-                self.current_i = self.outer_yielded;
-                self.outer_yielded += 1;
-                self.outer_byte_pos += c.len_utf8();
-
-                self.current_char = Some(c);
-                self.layout_index = 0;
-                self.keyboard_chars = None;
-                self.keyboard_char_pos = 0;
+            if self.current_char.is_none() && self.advance(fqdn).is_none() {
+                return false;
             }
 
             let c = self.current_char.expect("current char must be set");
@@ -2344,21 +2358,13 @@ impl InsertionState {
                 }
 
                 if let Some(chars) = self.keyboard_chars {
-                    while self.keyboard_char_pos < chars.len() {
-                        let Some(keyboard_char) = chars[self.keyboard_char_pos..].chars().next()
-                        else {
-                            break;
-                        };
+                    if let Some(keyboard_char) = chars[self.keyboard_char_pos..].chars().next() {
                         self.keyboard_char_pos += keyboard_char.len_utf8();
-
-                        if !fqdn.is_char_boundary(self.current_i) {
-                            continue;
-                        }
-
                         buffer.clear();
                         buffer.push_str(&fqdn[..self.current_i]);
                         buffer.push(keyboard_char);
                         buffer.push_str(&fqdn[self.current_i..]);
+                        self.pending_after = Some(keyboard_char);
                         return true;
                     }
                 }
@@ -2447,25 +2453,8 @@ impl ReplacementState {
 
     fn next_candidate(&mut self, fqdn: &str, buffer: &mut String) -> bool {
         loop {
-            if self.inner.current_char.is_none() {
-                if self.inner.outer_yielded >= self.inner.outer_limit
-                    || self.inner.outer_byte_pos >= fqdn.len()
-                {
-                    return false;
-                }
-
-                let Some(c) = fqdn[self.inner.outer_byte_pos..].chars().next() else {
-                    return false;
-                };
-
-                self.inner.current_i = self.inner.outer_yielded;
-                self.inner.outer_yielded += 1;
-                self.inner.outer_byte_pos += c.len_utf8();
-
-                self.inner.current_char = Some(c);
-                self.inner.layout_index = 0;
-                self.inner.keyboard_chars = None;
-                self.inner.keyboard_char_pos = 0;
+            if self.inner.current_char.is_none() && self.inner.advance(fqdn).is_none() {
+                return false;
             }
 
             let c = self.inner.current_char.expect("current char must be set");
@@ -2477,23 +2466,15 @@ impl ReplacementState {
                 }
 
                 if let Some(chars) = self.inner.keyboard_chars {
-                    while self.inner.keyboard_char_pos < chars.len() {
-                        let Some(keyboard_char) =
-                            chars[self.inner.keyboard_char_pos..].chars().next()
-                        else {
-                            break;
-                        };
+                    if let Some(keyboard_char) =
+                        chars[self.inner.keyboard_char_pos..].chars().next()
+                    {
                         self.inner.keyboard_char_pos += keyboard_char.len_utf8();
-
-                        if !fqdn.is_char_boundary(self.inner.current_i) {
-                            continue;
-                        }
 
                         buffer.clear();
                         buffer.push_str(&fqdn[..self.inner.current_i]);
                         buffer.push(keyboard_char);
-                        let replace_end = (self.inner.current_i + 1).min(fqdn.len());
-                        buffer.push_str(&fqdn[replace_end..]);
+                        buffer.push_str(&fqdn[self.inner.current_i + c.len_utf8()..]);
                         return true;
                     }
                 }
@@ -3100,6 +3081,19 @@ fn longest_repeated_char_run(input: &str) -> usize {
     longest
 }
 
+/// The words [`Domain::keyword`] joins to a domain, so callers can
+/// recognise keyword lookalikes without generating them.
+///
+/// # Example
+/// ```
+/// use twistrs::keywords;
+///
+/// assert!(keywords().contains(&"login"));
+/// ```
+pub fn keywords() -> &'static [&'static str] {
+    &KEYWORDS
+}
+
 /// Computes Shannon entropy for a string.
 ///
 /// The score is deterministic and based on Rust `char` frequencies, not bytes.
@@ -3450,6 +3444,65 @@ mod tests {
         let permutations: Vec<_> = dbg!(d.replacement(&Permissive).collect());
 
         assert!(!permutations.is_empty());
+    }
+
+    #[test]
+    fn test_replacement_uses_neighbours_of_the_replaced_character() {
+        let d = Domain::new("consob.it").unwrap();
+        let fqdns: Vec<_> = d.replacement(&Permissive).map(|p| p.domain.fqdn).collect();
+
+        // b and n are neighbours; the replaced character's own neighbours are used
+        assert!(fqdns.contains(&"conson.it".to_string()));
+        assert!(!fqdns.contains(&"vonsob.it".to_string()));
+        assert!(!fqdns.contains(&"xonsob.it".to_string()));
+        // s and t are not neighbours
+        let far = Domain::new("blastness.com").unwrap();
+        assert!(!far
+            .replacement(&Permissive)
+            .any(|p| p.domain.fqdn == "blastnets.com"));
+    }
+
+    #[test]
+    fn test_insertion_places_neighbours_beside_their_character() {
+        let d = Domain::new("paypal.com").unwrap();
+        let fqdns: Vec<_> = d.insertion(&Permissive).map(|p| p.domain.fqdn).collect();
+
+        // q is next to a, inserted before and after it
+        assert!(fqdns.contains(&"paypqal.com".to_string()));
+        assert!(fqdns.contains(&"paypaql.com".to_string()));
+        // x is next to neither p nor a
+        assert!(!fqdns.contains(&"paypxal.com".to_string()));
+    }
+
+    #[test]
+    fn test_visit_keyboard_modes_match_iterators() {
+        for fqdn in ["www.example.com", "consob.it", "bücher.de"] {
+            let d = Domain::new(fqdn).unwrap();
+            let mut buffer = String::new();
+
+            let mut insertions = Vec::new();
+            d.visit_insertion_with_buf(&Permissive, &mut buffer, &mut |p| {
+                insertions.push(p.domain.fqdn.to_string());
+            });
+            let iterated: Vec<_> = d.insertion(&Permissive).map(|p| p.domain.fqdn).collect();
+            assert_eq!(insertions, iterated, "{fqdn}");
+
+            let mut replacements = Vec::new();
+            d.visit_replacement_with_buf(&Permissive, &mut buffer, &mut |p| {
+                replacements.push(p.domain.fqdn.to_string());
+            });
+            let replaced: Vec<_> = d.replacement(&Permissive).map(|p| p.domain.fqdn).collect();
+            assert_eq!(replacements, replaced, "{fqdn}");
+        }
+    }
+
+    #[test]
+    fn test_keywords_are_the_keyword_mode_words() {
+        let d = Domain::new("example.com").unwrap();
+        let labels: Vec<_> = d.keyword(&Permissive).map(|p| p.domain.domain).collect();
+        for keyword in keywords() {
+            assert!(labels.contains(&format!("example-{keyword}")), "{keyword}");
+        }
     }
 
     #[test]
