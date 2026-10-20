@@ -32,7 +32,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
 
       - name: Install Python dependencies
-        run: pip install requests
+        run: pip install requests 'certifi>=2026.10.19'
 
       - name: Update GeoIP submodule
         run: |
